@@ -25,9 +25,7 @@ workflows:
           npx cap sync ios
       - name: Build iOS
         script: |
-          cat > /tmp/AuthKey.p8 << 'EOF'
-$APP_STORE_CONNECT_API_KEY
-EOF
+          echo "$APP_STORE_CONNECT_API_KEY" > /tmp/AuthKey.p8
           xcodebuild -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
