@@ -30,6 +30,24 @@ workflows:
             | sed -E 's/[[:space:]]*-----END PRIVATE KEY-----/\n-----END PRIVATE KEY-----/' \
             > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
           printf '\n' >> ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+      - name: Diagnose raw variable structure (no secret exposed)
+        script: |
+          echo "RAW_LENGTH:"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | wc -c
+          echo "RAW_REAL_NEWLINE_COUNT:"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | wc -l
+          echo "HAS_BEGIN_HEADER(1=yes):"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -c "BEGIN PRIVATE KEY" || echo 0
+          echo "HAS_END_FOOTER(1=yes):"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -c "END PRIVATE KEY" || echo 0
+          echo "HAS_CARRIAGE_RETURN(1=yes):"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -cP '\r' || echo 0
+          echo "HAS_LITERAL_BACKSLASH_N(1=yes):"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -cF '\n' || echo 0
+          echo "HAS_DOUBLE_QUOTE(1=yes):"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -cF '"' || echo 0
+          echo "HAS_SPACE(1=yes):"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -cF ' ' || echo 0
       - name: Debug API key file (no secret exposed)
         script: |
           echo "--- First line ---"
