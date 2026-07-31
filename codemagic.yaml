@@ -25,26 +25,12 @@ workflows:
           npx cap sync ios
       - name: Build iOS
         script: |
-          echo "$APP_STORE_CONNECT_API_KEY" > /tmp/AuthKey.p8
           xcodebuild -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -archivePath build/App.xcarchive \
             -allowProvisioningUpdates \
-            -authenticationKeyPath /tmp/AuthKey.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_ID \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             archive
-      - name: Upload to App Store Connect
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportPath build/export \
-            -exportOptionsPlist ExportOptions.plist \
-            -uploadToAppStore \
-            -authenticationKeyPath /tmp/AuthKey.p8 \
-            -authenticationKeyID $APP_STORE_CONNECT_KEY_ID \
-            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
     artifacts:
-      - build/export/*.ipa
+      - build/App.xcarchive
