@@ -28,6 +28,18 @@ workflows:
         script: |
           mkdir -p ~/private_keys
           echo "$APP_STORE_CONNECT_API_KEY" | tr -d '[:space:]' | openssl base64 -d -A -out ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+      - name: Debug API key file (no secret exposed)
+        script: |
+          echo "--- First line ---"
+          head -n 1 ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          echo "--- Last line ---"
+          tail -n 1 ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          echo "--- Line count ---"
+          wc -l ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          echo "--- Byte count ---"
+          wc -c ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          echo "--- openssl validation ---"
+          openssl pkey -in ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8 -noout -check && echo "KEY IS VALID" || echo "OPENSSL VALIDATION FAILED"
       - name: Build iOS
         script: |
           xcodebuild -project "$XCODE_PROJECT" \
