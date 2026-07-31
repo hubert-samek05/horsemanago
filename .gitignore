@@ -1,0 +1,23 @@
+node_modules/
+.next/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.DS_Store
+*.log
+# iOS
+ios/Pods/
+ios/*.xcworkspace
+ios/App/Pods/
+ios/App/App.xcworkspace/xcshareddata/
+ios/App/build/
+ios/App/DerivedData/
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+# Capacitor
+.capacitor/
+

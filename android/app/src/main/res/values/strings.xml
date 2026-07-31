@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">horsemango.net</string>
+    <string name="title_activity_main">horsemango.net</string>
+    <string name="package_name">com.horsemago.app</string>
+    <string name="custom_url_scheme">com.horsemago.app</string>
+</resources>
