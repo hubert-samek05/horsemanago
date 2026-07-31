@@ -8,10 +8,6 @@ workflows:
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
-        DEVELOPMENT_TEAM: $DEVELOPMENT_TEAM
-        APP_STORE_CONNECT_API_KEY: $APP_STORE_CONNECT_API_KEY
-        APP_STORE_CONNECT_KEY_ID: UFH5C7F276
-        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
     triggering:
       events:
         - push
