@@ -9,9 +9,6 @@ workflows:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
         BUNDLE_ID: "net.horsemanago2"
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: net.horsemanago2
     triggering:
       events:
         - push
