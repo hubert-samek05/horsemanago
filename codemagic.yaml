@@ -2,6 +2,7 @@ workflows:
   ios-workflow:
     name: iOS Build
     environment:
+      xcode: 15.4
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
@@ -23,6 +24,10 @@ workflows:
       - name: Update Capacitor
         script: |
           npx cap sync ios
+      - name: Set up App Store Connect API key
+        script: |
+          mkdir -p ~/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY" > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
       - name: Build iOS
         script: |
           xcodebuild -project "$XCODE_PROJECT" \
@@ -30,16 +35,21 @@ workflows:
             -configuration Release \
             -archivePath build/App.xcarchive \
             -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             archive
       - name: Upload to App Store Connect
         script: |
-          mkdir -p ~/private_keys
-          echo "$APP_STORE_CONNECT_API_KEY" > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportPath build/export \
             -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8 \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
             -teamID $DEVELOPMENT_TEAM
           xcrun altool --upload-app \
             --type ios \
