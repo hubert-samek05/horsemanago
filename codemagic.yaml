@@ -25,7 +25,11 @@ workflows:
       - name: Set up App Store Connect API key
         script: |
           mkdir -p ~/private_keys
-          printf '%s\n' "$APP_STORE_CONNECT_API_KEY" > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          printf '%s' "$APP_STORE_CONNECT_API_KEY" \
+            | sed -E 's/-----BEGIN PRIVATE KEY-----[[:space:]]*/-----BEGIN PRIVATE KEY-----\n/' \
+            | sed -E 's/[[:space:]]*-----END PRIVATE KEY-----/\n-----END PRIVATE KEY-----/' \
+            > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          printf '\n' >> ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
       - name: Debug API key file (no secret exposed)
         script: |
           echo "--- First line ---"
