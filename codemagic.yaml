@@ -29,6 +29,9 @@ workflows:
       - name: Add certificates to keychain
         script: |
           echo "$CM_CERTIFICATE" | openssl base64 -d -A -out /tmp/certificate.p12
+          echo "CM_CERTIFICATE var length:"; printf '%s' "$CM_CERTIFICATE" | wc -c
+          echo "Decoded p12 file size:"; wc -c < /tmp/certificate.p12
+          echo "First 8 bytes (hex, structural only):"; head -c 8 /tmp/certificate.p12 | xxd
           if [ -z "${CM_CERTIFICATE_PASSWORD+x}" ]; then
             keychain add-certificates --certificate /tmp/certificate.p12
           else
