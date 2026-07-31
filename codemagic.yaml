@@ -33,11 +33,15 @@ workflows:
             archive
       - name: Upload to App Store Connect
         script: |
+          echo $APP_STORE_CONNECT_API_KEY > AuthKey.p8
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportPath build/export \
             -exportOptionsPlist ExportOptions.plist \
             -uploadToAppStore \
-            -api_key "$APP_STORE_CONNECT_API_KEY"
+            -authenticationKeyPath AuthKey.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_ID \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID \
+            -allowProvisioningUpdates
     artifacts:
       - build/export/*.ipa
