@@ -29,14 +29,15 @@ workflows:
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -archivePath build/App.xcarchive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            -allowProvisioningUpdates \
+            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             archive
       - name: Upload to App Store Connect
         script: |
           mkdir -p ~/private_keys
-          echo "$APP_STORE_CONNECT_API_KEY" > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          cat > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8 << 'EOF'
+$APP_STORE_CONNECT_API_KEY
+EOF
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportPath build/export \
