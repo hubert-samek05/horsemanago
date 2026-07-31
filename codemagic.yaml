@@ -31,11 +31,5 @@ workflows:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             archive
-      - name: Export IPA
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportPath build/export \
-            -exportOptionsPlist ExportOptions.plist
     artifacts:
-      - build/export/*.ipa
+      - build/App.xcarchive
