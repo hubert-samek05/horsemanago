@@ -36,9 +36,15 @@ workflows:
           xcode-project use-profiles --code-signing-setup-verbose-logging
       - name: Build ipa for distribution
         script: |
+          set +e
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
+          EXIT_CODE=$?
+          set -e
+          echo "=== Full xcodebuild log ==="
+          cat /tmp/xcodebuild_logs/*.log 2>/dev/null || echo "No xcodebuild log file found"
+          exit $EXIT_CODE
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
