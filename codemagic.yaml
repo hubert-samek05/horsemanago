@@ -31,5 +31,13 @@ workflows:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             archive
+      - name: Upload to App Store Connect
+        script: |
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist \
+            -uploadToAppStore \
+            -api_key "$APP_STORE_CONNECT_API_KEY"
     artifacts:
-      - build/App.xcarchive
+      - build/export/*.ipa
