@@ -35,10 +35,13 @@ workflows:
             archive
       - name: Upload to App Store Connect
         script: |
+          mkdir -p ~/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY" > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportPath build/export \
-            -exportOptionsPlist ExportOptions.plist
+            -exportOptionsPlist ExportOptions.plist \
+            -teamID $DEVELOPMENT_TEAM
           xcrun altool --upload-app \
             --type ios \
             --file build/export/*.ipa \
