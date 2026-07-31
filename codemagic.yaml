@@ -2,11 +2,13 @@ workflows:
   ios-workflow:
     name: iOS Build
     environment:
-      groups:
-        - apple-credentials
       vars:
         XCODE_WORKSPACE: "App/App.xcworkspace"
         XCODE_SCHEME: "App"
+        CM_CERTIFICATE: $CM_CERTIFICATE
+        CM_CERTIFICATE_PASSWORD: $CM_CERTIFICATE_PASSWORD
+        CM_PROVISIONING_PROFILE: $CM_PROVISIONING_PROFILE
+        CM_PROVISIONING_PROFILE_SPECIFIER: $CM_PROVISIONING_PROFILE_SPECIFIER
     triggering:
       events:
         - push
