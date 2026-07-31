@@ -29,6 +29,7 @@ workflows:
             -configuration Release \
             -archivePath build/App.xcarchive \
             -allowProvisioningUpdates \
+            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             archive
       - name: Upload to App Store Connect
         script: |
