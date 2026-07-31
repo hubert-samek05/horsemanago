@@ -2,7 +2,7 @@ workflows:
   ios-workflow:
     name: iOS Build
     environment:
-      xcode: 15.4
+      xcode: latest
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
