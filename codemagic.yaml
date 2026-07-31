@@ -22,13 +22,31 @@ workflows:
       - name: Update Capacitor
         script: |
           npx cap sync ios
+      - name: Setup Code Signing
+        script: |
+          echo "Setting up code signing..."
+          # Import certificate
+          echo $CM_CERTIFICATE | base64 --decode > certificate.p12
+          # Import provisioning profile
+          echo $CM_PROVISIONING_PROFILE | base64 --decode > profile.mobileprovision
+          # Create keychain
+          security create-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P $CM_CERTIFICATE_PASSWORD -T /usr/bin/codesign
+          security list-keychains -s build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security set-key-partition-list -S apple-toolkit:,apple: -s -k "" build.keychain
+          # Install provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Build iOS
         script: |
           xcodebuild -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -archivePath build/App.xcarchive \
-            -allowProvisioningUpdates \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$CM_PROVISIONING_PROFILE_SPECIFIER" \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             archive
       - name: Upload to App Store Connect
