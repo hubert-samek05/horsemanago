@@ -5,6 +5,9 @@ workflows:
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
+        APP_STORE_CONNECT_API_KEY: $APP_STORE_CONNECT_API_KEY
+        APP_STORE_CONNECT_KEY_ID: $APP_STORE_CONNECT_KEY_ID
+        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
     triggering:
       events:
         - push
@@ -25,9 +28,18 @@ workflows:
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -archivePath build/App.xcarchive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            -allowProvisioningUpdates \
             archive
+      - name: Upload to App Store Connect
+        script: |
+          echo "$APP_STORE_CONNECT_API_KEY" > /tmp/AuthKey.p8
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist \
+            -uploadToAppStore \
+            -authenticationKeyPath /tmp/AuthKey.p8 \
+            -authenticationKeyID $APP_STORE_CONNECT_KEY_ID \
+            -authenticationKeyIssuerID $APP_STORE_CONNECT_ISSUER_ID
     artifacts:
-      - build/App.xcarchive
+      - build/export/*.ipa
