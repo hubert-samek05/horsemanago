@@ -9,7 +9,6 @@ workflows:
         APP_STORE_CONNECT_API_KEY: $APP_STORE_CONNECT_API_KEY
         APP_STORE_CONNECT_KEY_ID: $APP_STORE_CONNECT_KEY_ID
         APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
-        CM_CERTIFICATE: $CM_CERTIFICATE
     triggering:
       events:
         - push
@@ -24,16 +23,6 @@ workflows:
       - name: Update Capacitor
         script: |
           npx cap sync ios
-      - name: Setup Code Signing
-        script: |
-          echo "Setting up code signing..."
-          echo $CM_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "" build.keychain
-          security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign
-          security list-keychains -s build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          security set-key-partition-list -S apple-toolkit:,apple: -s -k "" build.keychain
       - name: Build iOS
         script: |
           xcodebuild -project "$XCODE_PROJECT" \
