@@ -33,13 +33,14 @@ workflows:
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --verbose
       - name: Add certificates to keychain
         script: |
           keychain add-certificates
       - name: Set up code signing on Xcode project
         script: |
-          xcode-project use-profiles
+          xcode-project use-profiles --code-signing-setup-verbose-logging
       - name: Build ipa for distribution
         script: |
           xcode-project build-ipa \
