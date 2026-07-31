@@ -5,7 +5,7 @@ workflows:
       groups:
         - apple-credentials
       vars:
-        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
     triggering:
       events:
@@ -23,7 +23,7 @@ workflows:
           npx cap sync ios
       - name: Build iOS
         script: |
-          xcodebuild -workspace "$XCODE_WORKSPACE" \
+          xcodebuild -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -archivePath build/App.xcarchive \
