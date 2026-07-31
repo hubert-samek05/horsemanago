@@ -3,9 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>app-store</string>
-    <key>teamID</key>
-    <string>YOUR_TEAM_ID</string>
+    <string>development</string>
     <key>uploadBitcode</key>
     <false/>
     <key>uploadSymbols</key>
@@ -13,11 +11,6 @@
     <key>compileBitcode</key>
     <false/>
     <key>signingStyle</key>
-    <string>manual</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>net.horsemanago2</key>
-        <string>YOUR_PROVISIONING_PROFILE_NAME</string>
-    </dict>
+    <string>automatic</string>
 </dict>
 </plist>
