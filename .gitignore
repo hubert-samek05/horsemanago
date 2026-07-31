@@ -6,9 +6,8 @@ node_modules/
 .env.production.local
 .DS_Store
 *.log
-# iOS
+# iOS build artifacts
 ios/Pods/
-ios/*.xcworkspace
 ios/App/Pods/
 ios/App/App.xcworkspace/xcshareddata/
 ios/App/build/
