@@ -1,13 +1,17 @@
 workflows:
   ios-workflow:
     name: iOS Build
+    integrations:
+      app_store_connect: horsemanago-key
     environment:
       xcode: latest
-      groups:
-        - apple-credentials
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
+        BUNDLE_ID: "net.horsemanago2"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: net.horsemanago2
     triggering:
       events:
         - push
@@ -22,73 +26,29 @@ workflows:
       - name: Update Capacitor
         script: |
           npx cap sync ios
-      - name: Set up App Store Connect API key
+      - name: Initialize keychain
         script: |
-          mkdir -p ~/private_keys
-          KEY_FILE=~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
-          BODY=$(printf '%s' "$APP_STORE_CONNECT_API_KEY" | tr -d '[:space:]"')
-          {
-            echo "-----BEGIN PRIVATE KEY-----"
-            echo "$BODY" | fold -w 64
-            echo "-----END PRIVATE KEY-----"
-          } > "$KEY_FILE"
-      - name: Diagnose raw variable structure (no secret exposed)
+          keychain initialize
+      - name: Fetch signing files
         script: |
-          echo "RAW_LENGTH:"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | wc -c
-          echo "RAW_REAL_NEWLINE_COUNT:"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | wc -l
-          echo "HAS_BEGIN_HEADER(1=yes):"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -c "BEGIN PRIVATE KEY" || echo 0
-          echo "HAS_END_FOOTER(1=yes):"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -c "END PRIVATE KEY" || echo 0
-          echo "HAS_CARRIAGE_RETURN(1=yes):"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -c $'\r' || echo 0
-          echo "HAS_LITERAL_BACKSLASH_N(1=yes):"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -cF '\n' || echo 0
-          echo "HAS_DOUBLE_QUOTE(1=yes):"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -cF '"' || echo 0
-          echo "HAS_SPACE(1=yes):"
-          printf '%s' "$APP_STORE_CONNECT_API_KEY" | grep -cF ' ' || echo 0
-      - name: Debug API key file (no secret exposed)
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Add certificates to keychain
         script: |
-          echo "--- First line ---"
-          head -n 1 ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
-          echo "--- Last line ---"
-          tail -n 1 ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
-          echo "--- Line count ---"
-          wc -l ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
-          echo "--- Byte count ---"
-          wc -c ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
-          echo "--- openssl validation ---"
-          openssl pkey -in ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8 -noout -check && echo "KEY IS VALID" || echo "OPENSSL VALIDATION FAILED"
-      - name: Build iOS
+          keychain add-certificates
+      - name: Set up code signing on Xcode project
         script: |
-          xcodebuild -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -archivePath build/App.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8 \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-            archive
-      - name: Upload to App Store Connect
+          xcode-project use-profiles
+      - name: Build ipa for distribution
         script: |
-          xcodebuild -exportArchive \
-            -archivePath build/App.xcarchive \
-            -exportPath build/export \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8 \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
-            -teamID $DEVELOPMENT_TEAM
-          xcrun altool --upload-app \
-            --type ios \
-            --file build/export/*.ipa \
-            --apiKey $APP_STORE_CONNECT_KEY_ID \
-            --apiIssuer $APP_STORE_CONNECT_ISSUER_ID
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
     artifacts:
-      - build/export/*.ipa
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
