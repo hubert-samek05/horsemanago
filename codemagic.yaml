@@ -3,6 +3,8 @@ workflows:
     name: iOS Build
     environment:
       xcode: latest
+      groups:
+        - apple-credentials
       vars:
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
