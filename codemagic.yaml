@@ -25,7 +25,7 @@ workflows:
       - name: Set up App Store Connect API key
         script: |
           mkdir -p ~/private_keys
-          echo "$APP_STORE_CONNECT_API_KEY" | tr -d '[:space:]' | openssl base64 -d -A -out ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
+          printf '%s\n' "$APP_STORE_CONNECT_API_KEY" > ~/private_keys/AuthKey_$APP_STORE_CONNECT_KEY_ID.p8
       - name: Debug API key file (no secret exposed)
         script: |
           echo "--- First line ---"
