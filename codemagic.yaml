@@ -32,7 +32,7 @@ workflows:
             archive
       - name: Upload to App Store Connect
         script: |
-          echo "$APP_STORE_CONNECT_API_KEY" > /tmp/AuthKey.p8
+          echo $APP_STORE_CONNECT_API_KEY > /tmp/AuthKey.p8
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportPath build/export \
