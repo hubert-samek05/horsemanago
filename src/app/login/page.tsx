@@ -332,7 +332,10 @@ export default function LoginPage() {
             <div className="mb-6">
               <button
                 type="button"
-                onClick={handleAppleSignIn}
+                onClick={() => {
+                  console.log('Apple button clicked directly');
+                  handleAppleSignIn();
+                }}
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-iceBlue bg-white hover:bg-iceBlue/50 transition-all text-deepNavy font-medium text-sm disabled:opacity-50"
               >
