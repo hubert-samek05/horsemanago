@@ -112,19 +112,23 @@ export default function LoginPage() {
   };
 
   const handleAppleSignIn = async () => {
+    console.log('Apple Sign-In clicked');
     setError('');
 
     if (!Capacitor.isNativePlatform()) {
+      console.log('Not native platform');
       setError('Logowanie przez Apple jest dostępne tylko w aplikacji mobilnej');
       return;
     }
 
     // For registration, require role selection
     if (activeTab === 'register' && !registerData.role) {
+      console.log('No role selected for registration');
       setError('Proszę wybrać rolę przed rejestracją przez Apple');
       return;
     }
 
+    console.log('Starting Apple Sign-In...');
     setLoading(true);
     try {
       const result = await SignInWithApple.authorize({
@@ -134,6 +138,7 @@ export default function LoginPage() {
         state: Math.random().toString(36).substring(2, 15),
       });
 
+      console.log('Apple Sign-In result:', result);
       const { identityToken, givenName, familyName } = result.response;
 
       if (!identityToken) {
@@ -160,6 +165,7 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err: any) {
+      console.error('Apple Sign-In error:', err);
       if (err?.code !== '1001') {
         setError(err.response?.data?.error || 'Wystąpił błąd podczas logowania przez Apple');
       }
