@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Playfair_Display, Manrope } from 'next/font/google'
 import './globals.css'
 import StoreHydration from '@/components/StoreHydration'
+import Script from 'next/script'
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,22 @@ export default function RootLayout({
   return (
     <html lang="pl" className={`${inter.variable} ${playfair.variable} ${manrope.variable}`}>
       <body className="font-sans antialiased">
+        <Script
+          src="https://appleid.cdn-apple.com/appleauth/static/signin.js"
+          async
+          onLoad={() => {
+            // @ts-ignore - Apple JS SDK global
+            if (window.AppleID) {
+              window.AppleID.auth.init({
+                clientId: 'net.horsemanago2.signin',
+                scope: 'email name',
+                redirectURI: 'https://horsemanago.net/login',
+                state: Math.random().toString(36).substring(2, 15),
+                usePopup: true,
+              });
+            }
+          }}
+        />
         <StoreHydration />
         {children}
       </body>
