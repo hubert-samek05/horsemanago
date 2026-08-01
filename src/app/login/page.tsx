@@ -48,7 +48,7 @@ export default function LoginPage() {
 
       console.log('Loading Apple SDK...');
       const script = document.createElement('script');
-      script.src = 'https://appleid.cdn-apple.com/appleauth/static/signin.js';
+      script.src = 'https://appleid.cdn-apple.com/appleauth/static/js/appleid/1/en_US/appleid.auth.js';
       script.async = true;
       script.crossOrigin = 'anonymous';
       
