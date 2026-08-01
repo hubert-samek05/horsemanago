@@ -125,91 +125,51 @@ export default function LoginPage() {
     console.log('Starting Apple Sign-In...');
     setLoading(true);
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Native platform (iOS/Android)
-        const result = await SignInWithApple.authorize({
-          clientId: 'net.horsemanago2',
+      // Use Apple JS SDK for all platforms (web, iOS, Android via Capacitor)
+      console.log('Apple Sign-In using JS SDK');
+      if (window.AppleID) {
+        const data = await window.AppleID.auth.signIn({
+          clientId: 'net.horsemanago2.signin',
+          scope: 'email name',
           redirectURI: 'https://horsemanago.net/login',
-          scopes: 'email name',
           state: Math.random().toString(36).substring(2, 15),
+          usePopup: true,
         });
 
-        console.log('Apple Sign-In result (native):', result);
-        const { identityToken, givenName, familyName } = result.response;
+        console.log('Apple Sign-In result:', data);
+        const { authorization, user } = data;
+        const { id_token } = authorization;
+        const { email, name } = user || {};
 
-        if (!identityToken) {
+        if (!id_token) {
           throw new Error('Brak tokenu Apple');
         }
 
         const response = await api.post('/auth/apple', {
-          identityToken,
-          firstName: givenName,
-          lastName: familyName,
+          identityToken: id_token,
+          firstName: name?.firstName,
+          lastName: name?.lastName,
           role: activeTab === 'register' ? registerData.role : undefined,
         });
-        const { token, user } = response.data;
+        const { token, user: authUser } = response.data;
 
-        setAuth(user, token);
+        setAuth(authUser, token);
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(authUser));
 
         if (redirectTarget) {
           router.push(redirectTarget);
-        } else if (user.role === 'CLIENT') {
+        } else if (authUser.role === 'CLIENT') {
           router.push('/client');
         } else {
           router.push('/dashboard');
         }
       } else {
-        // Web platform - use Apple JS SDK
-        console.log('Apple Sign-In for web');
-        // @ts-ignore - Apple JS SDK is loaded from script
-        if (window.AppleID) {
-          const data = await window.AppleID.auth.signIn({
-            clientId: 'net.horsemanago2.signin',
-            scope: 'email name',
-            redirectURI: 'https://horsemanago.net/login',
-            state: Math.random().toString(36).substring(2, 15),
-            usePopup: true,
-          });
-
-          console.log('Apple Sign-In result (web):', data);
-          const { authorization, user } = data;
-          const { id_token } = authorization;
-          const { email, name } = user || {};
-
-          if (!id_token) {
-            throw new Error('Brak tokenu Apple');
-          }
-
-          const response = await api.post('/auth/apple', {
-            identityToken: id_token,
-            firstName: name?.firstName,
-            lastName: name?.lastName,
-            role: activeTab === 'register' ? registerData.role : undefined,
-          });
-          const { token, user: authUser } = response.data;
-
-          setAuth(authUser, token);
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(authUser));
-
-          if (redirectTarget) {
-            router.push(redirectTarget);
-          } else if (authUser.role === 'CLIENT') {
-            router.push('/client');
-          } else {
-            router.push('/dashboard');
-          }
-        } else {
-          setError('Apple Sign-In SDK nie jest załadowany');
-        }
+        setError('Apple Sign-In SDK nie jest załadowany. Proszę odświeżyć stronę.');
       }
     } catch (err: any) {
       console.error('Apple Sign-In error:', err);
-      if (err?.code !== '1001') {
-        setError(err.response?.data?.error || 'Wystąpił błąd podczas logowania przez Apple');
-      }
+      setError(err.response?.data?.error || 'Wystąpił błąd podczas logowania przez Apple');
     } finally {
       setLoading(false);
     }
