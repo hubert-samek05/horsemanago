@@ -6,6 +6,18 @@ import Script from 'next/script'
 
 export const dynamic = 'force-dynamic';
 
+// Declare AppleID global type
+declare global {
+  interface Window {
+    AppleID?: {
+      auth: {
+        init: (config: any) => void;
+        signIn: (config: any) => Promise<any>;
+      };
+    };
+  }
+}
+
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })
 const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope' })
@@ -28,7 +40,6 @@ export default function RootLayout({
           src="https://appleid.cdn-apple.com/appleauth/static/signin.js"
           async
           onLoad={() => {
-            // @ts-ignore - Apple JS SDK global
             if (window.AppleID) {
               window.AppleID.auth.init({
                 clientId: 'net.horsemanago2.signin',
