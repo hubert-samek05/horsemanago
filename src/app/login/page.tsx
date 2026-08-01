@@ -6,11 +6,22 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Capacitor } from '@capacitor/core';
-import { SignInWithApple } from '@capacitor-community/apple-sign-in';
+import Script from 'next/script';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import Button from '@/components/ui/Button';
+
+// Declare AppleID global type
+declare global {
+  interface Window {
+    AppleID?: {
+      auth: {
+        init: (config: any) => void;
+        signIn: (config: any) => Promise<any>;
+      };
+    };
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,6 +36,27 @@ export default function LoginPage() {
       }
     }
   }, [router]);
+
+  // Load Apple JS SDK
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.AppleID) {
+      const script = document.createElement('script');
+      script.src = 'https://appleid.cdn-apple.com/appleauth/static/signin.js';
+      script.async = true;
+      script.onload = () => {
+        if (window.AppleID) {
+          window.AppleID.auth.init({
+            clientId: 'net.horsemanago2.signin',
+            scope: 'email name',
+            redirectURI: 'https://horsemanago.net/login',
+            state: Math.random().toString(36).substring(2, 15),
+            usePopup: true,
+          });
+        }
+      };
+      document.head.appendChild(script);
+    }
+  }, []);
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loginData, setLoginData] = useState({
