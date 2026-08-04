@@ -160,14 +160,14 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(user));
 
       if (redirectTarget) {
-        router.push(redirectTarget);
+        router.replace(redirectTarget);
       } else {
         // Check for pending invitations first
         api.get('/employees/invitations/pending')
           .then(({ data }) => {
             if (Array.isArray(data) && data.length > 0) {
               console.log('Has pending invitations, redirecting to invitations page');
-              router.push('/invitations');
+              router.replace('/invitations');
             } else if (user.roles) {
               // Count total stables across all roles
               const ownerStables = user.roles.STABLE_OWNER || [];
@@ -185,30 +185,30 @@ export default function LoginPage() {
                 const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
                 const role = ownerStables[0] ? 'STABLE_OWNER' : (instructorStables[0] ? 'INSTRUCTOR' : 'STABLE_WORKER');
                 console.log('Redirecting directly to dashboard with stable:', stable.stableId, 'role:', role);
-                router.push(`/dashboard?stableId=${stable.stableId}`);
+                router.replace(`/dashboard?stableId=${stable.stableId}`);
               } else if (hasStableRole) {
                 // User has multiple stables - redirect to stable selection
                 console.log('Redirecting to select-stable (multiple stable roles)');
-                router.push('/select-stable');
+                router.replace('/select-stable');
               } else if (clientStables.length > 0) {
                 // User is only a client - redirect to client panel
                 console.log('Redirecting to client (client role)');
-                router.push('/client');
+                router.replace('/client');
               } else if (user.role === 'CLIENT') {
                 // Fallback for old users without roles object
                 console.log('Redirecting to client (fallback)');
-                router.push('/client');
+                router.replace('/client');
               } else {
                 console.log('Redirecting to dashboard, user.role:', user.role);
-                router.push('/dashboard');
+                router.replace('/dashboard');
               }
             } else if (user.role === 'CLIENT') {
               // Fallback for old users without roles object
               console.log('Redirecting to client (fallback)');
-              router.push('/client');
+              router.replace('/client');
             } else {
               console.log('Redirecting to dashboard, user.role:', user.role);
-              router.push('/dashboard');
+              router.replace('/dashboard');
             }
           })
           .catch((err) => {
