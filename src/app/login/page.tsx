@@ -25,17 +25,18 @@ declare global {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const { setAuth, user, token } = useAuthStore();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const direct = urlParams.get('direct');
-      if (!direct) {
-        router.push('/welcome');
+      // Only redirect to welcome if user is already logged in and not explicitly accessing login page
+      if (!direct && user && token) {
+        router.replace('/welcome');
       }
     }
-  }, [router]);
+  }, [router, user, token]);
 
   // Load Apple JS SDK
   useEffect(() => {
@@ -150,17 +151,96 @@ export default function LoginPage() {
     try {
       const response = await api.post('/auth/login', loginData);
       const { token, user } = response.data;
-      
+
+      console.log('Login response user:', user);
+      console.log('User roles:', user.roles);
+
       setAuth(user, token);
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
       if (redirectTarget) {
         router.push(redirectTarget);
-      } else if (user.role === 'CLIENT') {
-        router.push('/client');
       } else {
-        router.push('/dashboard');
+        // Check for pending invitations first
+        api.get('/employees/invitations/pending')
+          .then(({ data }) => {
+            if (Array.isArray(data) && data.length > 0) {
+              console.log('Has pending invitations, redirecting to invitations page');
+              router.push('/invitations');
+            } else if (user.roles) {
+              // Count total stables across all roles
+              const ownerStables = user.roles.STABLE_OWNER || [];
+              const instructorStables = user.roles.INSTRUCTOR || [];
+              const workerStables = user.roles.STABLE_WORKER || [];
+              const clientStables = user.roles.CLIENT || [];
+              
+              const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
+              const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
+              
+              console.log('Total stables:', totalStables, 'Has stable role:', hasStableRole);
+              
+              if (hasStableRole && totalStables === 1) {
+                // User has only one stable - redirect directly to dashboard
+                const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
+                const role = ownerStables[0] ? 'STABLE_OWNER' : (instructorStables[0] ? 'INSTRUCTOR' : 'STABLE_WORKER');
+                console.log('Redirecting directly to dashboard with stable:', stable.stableId, 'role:', role);
+                router.push(`/dashboard?stableId=${stable.stableId}`);
+              } else if (hasStableRole) {
+                // User has multiple stables - redirect to stable selection
+                console.log('Redirecting to select-stable (multiple stable roles)');
+                router.push('/select-stable');
+              } else if (clientStables.length > 0) {
+                // User is only a client - redirect to client panel
+                console.log('Redirecting to client (client role)');
+                router.push('/client');
+              } else if (user.role === 'CLIENT') {
+                // Fallback for old users without roles object
+                console.log('Redirecting to client (fallback)');
+                router.push('/client');
+              } else {
+                console.log('Redirecting to dashboard, user.role:', user.role);
+                router.push('/dashboard');
+              }
+            } else if (user.role === 'CLIENT') {
+              // Fallback for old users without roles object
+              console.log('Redirecting to client (fallback)');
+              router.push('/client');
+            } else {
+              console.log('Redirecting to dashboard, user.role:', user.role);
+              router.push('/dashboard');
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to check pending invitations:', err);
+            // Fallback to normal redirect logic
+            if (user.roles) {
+              const ownerStables = user.roles.STABLE_OWNER || [];
+              const instructorStables = user.roles.INSTRUCTOR || [];
+              const workerStables = user.roles.STABLE_WORKER || [];
+              const clientStables = user.roles.CLIENT || [];
+              
+              const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
+              const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
+              
+              if (hasStableRole && totalStables === 1) {
+                const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
+                router.push(`/dashboard?stableId=${stable.stableId}`);
+              } else if (hasStableRole) {
+                router.push('/select-stable');
+              } else if (clientStables.length > 0) {
+                router.push('/client');
+              } else if (user.role === 'CLIENT') {
+                router.push('/client');
+              } else {
+                router.push('/dashboard');
+              }
+            } else if (user.role === 'CLIENT') {
+              router.push('/client');
+            } else {
+              router.push('/dashboard');
+            }
+          });
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Wystąpił błąd podczas logowania');
@@ -217,7 +297,34 @@ export default function LoginPage() {
 
         if (redirectTarget) {
           router.push(redirectTarget);
+        } else if (authUser.roles) {
+          // Count total stables across all roles
+          const ownerStables = authUser.roles.STABLE_OWNER || [];
+          const instructorStables = authUser.roles.INSTRUCTOR || [];
+          const workerStables = authUser.roles.STABLE_WORKER || [];
+          const clientStables = authUser.roles.CLIENT || [];
+          
+          const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
+          const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
+          
+          if (hasStableRole && totalStables === 1) {
+            // User has only one stable - redirect directly to dashboard
+            const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
+            router.push(`/dashboard?stableId=${stable.stableId}`);
+          } else if (hasStableRole) {
+            // User has multiple stables - redirect to stable selection
+            router.push('/select-stable');
+          } else if (clientStables.length > 0) {
+            // User is only a client - redirect to client panel
+            router.push('/client');
+          } else if (authUser.role === 'CLIENT') {
+            // Client role with no specific stables - go to client panel
+            router.push('/client');
+          } else {
+            router.push('/dashboard');
+          }
         } else if (authUser.role === 'CLIENT') {
+          // Client role with no specific stables - go to client panel
           router.push('/client');
         } else {
           router.push('/dashboard');
@@ -253,7 +360,34 @@ export default function LoginPage() {
 
       if (redirectTarget) {
         router.push(redirectTarget);
+      } else if (user.roles) {
+        // Count total stables across all roles
+        const ownerStables = user.roles.STABLE_OWNER || [];
+        const instructorStables = user.roles.INSTRUCTOR || [];
+        const workerStables = user.roles.STABLE_WORKER || [];
+        const clientStables = user.roles.CLIENT || [];
+        
+        const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
+        const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
+        
+        if (hasStableRole && totalStables === 1) {
+          // User has only one stable - redirect directly to dashboard
+          const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
+          router.push(`/dashboard?stableId=${stable.stableId}`);
+        } else if (hasStableRole) {
+          // User has multiple stables - redirect to stable selection
+          router.push('/select-stable');
+        } else if (clientStables.length > 0) {
+          // User is only a client - redirect to client panel
+          router.push('/client');
+        } else if (user.role === 'CLIENT') {
+          // Client role with no specific stables - go to client panel
+          router.push('/client');
+        } else {
+          router.push('/dashboard');
+        }
       } else if (user.role === 'CLIENT') {
+        // Client role with no specific stables - go to client panel
         router.push('/client');
       } else {
         router.push('/dashboard');

@@ -14,7 +14,7 @@ const WEEKDAYS = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, activeRole } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [today, setToday] = useState<Date | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -27,7 +27,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [isAuthenticated, router]);
 
@@ -39,15 +39,16 @@ export default function DashboardPage() {
     return null;
   }
 
-  const isStableOwner = user.role === 'STABLE_OWNER' || user.role === 'ADMIN';
-  const isEmployee = user.role === 'INSTRUCTOR' || user.role === 'STABLE_WORKER';
+  const effectiveRole = activeRole || user.role;
+  const isStableOwner = effectiveRole === 'STABLE_OWNER' || effectiveRole === 'ADMIN';
+  const isEmployee = effectiveRole === 'INSTRUCTOR' || effectiveRole === 'STABLE_WORKER';
   const dateLabel = today
     ? `${WEEKDAYS[today.getDay()]}, ${today.getDate().toString().padStart(2, '0')}.${(today.getMonth() + 1).toString().padStart(2, '0')}`
     : '';
 
   const getRoleLabel = () => {
     if (isStableOwner) return 'Właściciel';
-    if (isEmployee) return user.role === 'INSTRUCTOR' ? 'Instruktor' : 'Pracownik';
+    if (isEmployee) return effectiveRole === 'INSTRUCTOR' ? 'Instruktor' : 'Pracownik';
     return 'Klient';
   };
 

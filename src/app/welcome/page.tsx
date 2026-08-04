@@ -2,39 +2,48 @@
 
 export const dynamic = 'force-dynamic';
 import Link from 'next/link';
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 
 export default function WelcomePage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, hasHydrated } = useAuthStore();
   const [isClient, setIsClient] = useState(false);
+  const isRedirecting = useRef(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (!isClient || !hasHydrated) return;
+    // Prevent multiple redirects
+    if (!isClient || !hasHydrated || isRedirecting.current) return;
+
+    // Only redirect if we're actually on the welcome page
+    if (pathname !== '/welcome') return;
 
     if (user) {
+      isRedirecting.current = true;
       const roles = (user as any).roles;
       const hasStableRoles = !!roles && (
         (roles.STABLE_OWNER?.length > 0) ||
         (roles.INSTRUCTOR?.length > 0) ||
         (roles.STABLE_WORKER?.length > 0)
       );
+      
+      let targetPath = '/dashboard';
       if (hasStableRoles) {
-        router.push('/select-stable');
+        targetPath = '/select-stable';
       } else if (roles?.CLIENT?.length > 0 || user.role === 'CLIENT') {
-        router.push('/client');
-      } else {
-        router.push('/dashboard');
+        targetPath = '/client';
       }
+      
+      // Use replace instead of push to avoid history issues
+      router.replace(targetPath);
     }
-  }, [hasHydrated, user, router, isClient]);
+  }, [hasHydrated, user, router, isClient, pathname]);
 
   if (!isClient) {
     return (
