@@ -3,26 +3,53 @@
 export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 
 export default function WelcomePage() {
   const router = useRouter();
   const { user, hasHydrated } = useAuthStore();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (hasHydrated && user) {
-      if (user.role === 'CLIENT') {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || !hasHydrated) return;
+
+    if (user) {
+      const roles = (user as any).roles;
+      const hasStableRoles = !!roles && (
+        (roles.STABLE_OWNER?.length > 0) ||
+        (roles.INSTRUCTOR?.length > 0) ||
+        (roles.STABLE_WORKER?.length > 0)
+      );
+      if (hasStableRoles) {
+        router.push('/select-stable');
+      } else if (roles?.CLIENT?.length > 0 || user.role === 'CLIENT') {
         router.push('/client');
       } else {
         router.push('/dashboard');
       }
     }
-  }, [hasHydrated, user, router]);
+  }, [hasHydrated, user, router, isClient]);
+
+  if (!isClient) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-black">
+        <div className="text-white text-lg">Ładowanie...</div>
+      </div>
+    );
+  }
 
   if (user) {
-    return null;
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-black">
+        <div className="text-white text-lg">Przekierowywanie...</div>
+      </div>
+    );
   }
 
   return (
