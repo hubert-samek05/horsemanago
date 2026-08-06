@@ -25,6 +25,9 @@ workflows:
       - name: Install dependencies
         script: |
           npm install
+      - name: Build frontend
+        script: |
+          npm run build
       - name: Update Capacitor
         script: |
           npx cap sync ios
@@ -93,12 +96,7 @@ workflows:
   ios-simulator-diagnostic:
     name: iOS Simulator Crash Diagnostic
     triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
+      events: []
     environment:
       xcode: latest
       vars:

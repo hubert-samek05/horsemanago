@@ -3,16 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'net.horsemanago2',
   appName: 'horsemanago.net',
-  webDir: 'public',
-  server: {
-    url: 'https://horsemanago.net',
-    cleartext: true,
-    appStartPath: '/welcome',
-    // Add timeout settings to prevent white screen
-    androidScheme: 'https',
-    // Allow navigation to any URL
-    allowNavigation: ['*']
-  },
+  webDir: 'dist',
   // Add iOS-specific settings
   ios: {
     contentInset: 'always',
