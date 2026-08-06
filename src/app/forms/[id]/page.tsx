@@ -1,5 +1,3 @@
-export const dynamic = 'force-static';
-
 import PublicFormPage from './ClientPage';
 
 export async function generateStaticParams() {
