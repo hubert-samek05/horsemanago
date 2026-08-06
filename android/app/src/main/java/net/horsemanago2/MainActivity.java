@@ -1,4 +1,4 @@
-package com.horsemago.app;
+package net.horsemanago2;
 
 import com.getcapacitor.BridgeActivity;
 

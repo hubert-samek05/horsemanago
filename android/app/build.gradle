@@ -44,21 +44,6 @@ android {
     }
 }
 
-// Task to increment version code after release build
-task incrementVersionCode {
-    doLast {
-        versionProps['VERSION_CODE'] = (currentVersionCode + 1).toString()
-        versionProps.store(versionPropsFile.newWriter(), null)
-        println "Version code incremented to: ${versionProps['VERSION_CODE']}"
-    }
-}
-
-tasks.whenTaskAdded { task ->
-    if (task.name == 'assembleRelease') {
-        task.finalizedBy 'incrementVersionCode'
-    }
-}
-
 repositories {
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'

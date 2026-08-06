@@ -20,5 +20,10 @@ android/local.properties
 # Capacitor
 .capacitor/
 
+*.aab
+*.apk
 public/*.aab
 public/*.apk
+dist/
+ios/App/App/public
+android/app/src/main/assets/public

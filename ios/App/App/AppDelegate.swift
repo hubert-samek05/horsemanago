@@ -7,19 +7,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        NSLog("### AppDelegate: didFinishLaunching")
-        window = UIWindow(frame: UIScreen.main.bounds)
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        if let initialVC = storyboard.instantiateInitialViewController() {
-            NSLog("### AppDelegate: initialVC = %@", String(describing: type(of: initialVC)))
-            window?.rootViewController = initialVC
-        } else {
-            NSLog("### AppDelegate: initialVC is nil, using plain UIViewController")
-            window?.rootViewController = UIViewController()
-        }
-        window?.makeKeyAndVisible()
-        let isKey = window?.isKeyWindow ?? false
-        NSLog("### AppDelegate: isKey=%@, root=%@", isKey ? "YES" : "NO", String(describing: window?.rootViewController))
+        // Override point for customization after application launch.
         return true
     }
 
@@ -57,6 +45,5 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
-
 
 }

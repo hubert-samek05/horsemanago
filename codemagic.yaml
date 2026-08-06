@@ -91,84 +91,33 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        submit_to_testflight: false
 
-  ios-simulator-diagnostic:
-    name: iOS Simulator Crash Diagnostic
-    triggering:
-      events: []
+  android-workflow:
+    name: Android Build
     environment:
-      xcode: latest
       vars:
-        XCODE_PROJECT: "ios/App/App.xcodeproj"
-        XCODE_SCHEME: "App"
         BUNDLE_ID: "net.horsemanago2"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
     scripts:
       - name: Install dependencies
         script: |
           npm install
+      - name: Build frontend
+        script: |
+          npm run build
       - name: Update Capacitor
         script: |
-          npx cap sync ios
-      - name: Build for simulator
+          npx cap sync android
+      - name: Build Android release bundle
         script: |
-          set +e
-          xcodebuild \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -sdk iphonesimulator \
-            -configuration Release \
-            -derivedDataPath build/DerivedData \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            build 2>&1 | tee /tmp/simbuild.log
-          echo "=== Build exit status: $? ==="
-      - name: Boot simulator, launch app, capture crash
-        script: |
-          set +e
-          APP_PATH=$(find build/DerivedData -name "App.app" -path "*iphonesimulator*" | head -1)
-          echo "Found app at: $APP_PATH"
-          if [ -z "$APP_PATH" ]; then
-            echo "ERROR: App.app not found in DerivedData, aborting."
-            find build/DerivedData -maxdepth 6 -iname "*.app"
-            exit 1
-          fi
-          echo "=== Ad-hoc signing the simulator app ==="
-          codesign --sign - --force --deep "$APP_PATH" 2>&1
-          DEVICE_ID=$(xcrun simctl create "DiagnosticIPhone" "iPhone 17 Pro Max" 2>/dev/null)
-          echo "Created device: $DEVICE_ID"
-          xcrun simctl boot "$DEVICE_ID"
-          sleep 20
-          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
-          echo "=== Starting log stream in background (App + WebContent + GPU processes) ==="
-          xcrun simctl spawn "$DEVICE_ID" log stream --predicate 'processImagePath CONTAINS "App.app" OR process CONTAINS "WebContent" OR process CONTAINS "com.apple.WebKit" OR process CONTAINS "RunningBoard" OR process CONTAINS "amfi" OR eventMessage CONTAINS "crash" OR eventMessage CONTAINS "Terminat"' --style compact > /tmp/app_console.log 2>&1 &
-          LOG_PID=$!
-          sleep 2
-          echo "=== Launching app ==="
-          LAUNCH_OUT=$(xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID" 2>&1)
-          LAUNCH_RC=$?
-          echo "Launch output: $LAUNCH_OUT"
-          echo "Launch exit code: $LAUNCH_RC"
-          sleep 45
-          echo "=== Process list (is App still running?) ==="
-          xcrun simctl spawn "$DEVICE_ID" launchctl list 2>&1 | grep -i horsemanago || echo "App process NOT found in launchctl list"
-          kill $LOG_PID 2>/dev/null
-          echo "=== App console focused output (###, Terminat, Exception, crashed, fault) ==="
-          grep -iE '###|Terminat|Exception|crashed|fault|Fatal|Error:' /tmp/app_console.log > /tmp/app_console_focused.log 2>/dev/null || true
-          cat /tmp/app_console_focused.log
-          echo "=== Full app_console.log is saved as an artifact ==="
-          echo "=== Listing DiagnosticReports directory (unfiltered) ==="
-          ls -la ~/Library/Logs/DiagnosticReports/ 2>&1
-          echo "=== Diagnostic Reports content (all .ips files) ==="
-          find ~/Library/Logs/DiagnosticReports -iname "*.ips" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
-          echo "=== Listing CoreSimulator device logs directory ==="
-          find "$HOME/Library/Logs/CoreSimulator/$DEVICE_ID" -type f 2>&1
-          echo "=== Filtered log dump (focused, 60s) ==="
-          ( xcrun simctl spawn "$DEVICE_ID" log show --predicate 'processImagePath CONTAINS "App.app" OR process CONTAINS "SpringBoard" OR process CONTAINS "RunningBoard" OR process CONTAINS "amfi" OR (eventMessage CONTAINS "$BUNDLE_ID")' --style compact --last 3m > /tmp/filtered_log.txt 2>&1 & LOGSHOW_PID=$!; sleep 60; kill $LOGSHOW_PID 2>/dev/null )
-          grep -iE '###|Security error|Terminat|Exception|crashed|fault|Fatal|amfi|RBS|Cannot|AppDelegate' /tmp/filtered_log.txt > /tmp/filtered_log_focused.txt 2>/dev/null || true
-          cat /tmp/filtered_log_focused.txt
-          xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null
-          xcrun simctl delete "$DEVICE_ID" 2>/dev/null
+          cd android
+          ./gradlew bundleRelease
     artifacts:
-      - /tmp/app_console.log
-      - /tmp/simbuild.log
+      - android/app/build/outputs/bundle/release/*.aab
