@@ -78,9 +78,10 @@ workflows:
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -sdk iphonesimulator \
-            -configuration Debug \
+            -configuration Release \
             -derivedDataPath build/DerivedData \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             build 2>&1 | tee /tmp/simbuild.log
           echo "=== Build exit status: $? ==="
       - name: Boot simulator, launch app, capture crash
@@ -105,7 +106,7 @@ workflows:
           echo "=== Launching app ==="
           xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
           echo "Launch exit code: $?"
-          sleep 15
+          sleep 30
           kill $LOG_PID 2>/dev/null
           echo "=== App console output ==="
           cat /tmp/app_console.log
