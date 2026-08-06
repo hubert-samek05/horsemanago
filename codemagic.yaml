@@ -69,6 +69,15 @@ workflows:
             lipo -info "$APP_BUNDLE/App" 2>&1
             echo "=== Frameworks embedded ==="
             ls -la "$APP_BUNDLE/Frameworks" 2>&1
+            echo "=== Deep signature verification (app + frameworks) ==="
+            codesign --verify --deep --strict --verbose=4 "$APP_BUNDLE" 2>&1
+            echo "=== Per-framework signature check ==="
+            for fw in "$APP_BUNDLE/Frameworks"/*; do
+              echo "--- $fw ---"
+              codesign -dvvv "$fw" 2>&1
+            done
+            echo "=== spctl assessment ==="
+            spctl -a -vvv --type execute "$APP_BUNDLE" 2>&1
           else
             echo "No IPA found to inspect"
           fi
