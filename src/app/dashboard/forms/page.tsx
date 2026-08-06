@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -8,6 +8,7 @@ import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
 import Image from 'next/image';
 import { Menu, Plus, X, Edit2, Trash2, FileText, Type, CheckSquare, Calendar, Mail, Phone, Settings, Link, Copy, Users, Share2, ExternalLink, Square } from 'lucide-react';
+import api from '@/lib/api';
 
 interface FormField {
   id: string;
@@ -47,17 +48,20 @@ interface FormTemplate {
 
 export default function FormsPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, activeStableId } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingForm, setEditingForm] = useState<FormTemplate | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     category: 'camp_registration' as FormTemplate['category'],
     linkedCampId: '' as string,
+    linkedCampName: '' as string,
     linkedSessionId: '' as string,
+    linkedSessionName: '' as string,
     fields: [] as FormField[],
     status: 'draft' as FormTemplate['status'],
   });
@@ -81,15 +85,43 @@ export default function FormsPage() {
   }
 
   const [forms, setForms] = useState<FormTemplate[]>([]);
+  const [camps, setCamps] = useState<any[]>([]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('horsemanago-forms', JSON.stringify(forms));
+    if (!activeStableId) {
+      setLoading(false);
+      return;
     }
-  }, [forms]);
+    setLoading(true);
+    const loadData = async () => {
+      try {
+        const [formsRes, campsRes] = await Promise.all([
+          api.get(`/forms?stableId=${activeStableId}`),
+          api.get(`/camps?stableId=${activeStableId}`)
+        ]);
+        setForms(formsRes.data || []);
+        setCamps(campsRes.data || []);
+      } catch (error) {
+        console.error('Load data error:', error);
+        setForms([]);
+        setCamps([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [activeStableId]);
 
-  // TODO: Fetch forms from API
-  // For now, forms will be empty and can be created by users
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
+        <div className="lg:ml-72 min-h-screen flex items-center justify-center">
+          <p className="text-marineBlue">Ładowanie formularzy...</p>
+        </div>
+      </div>
+    );
+  }
 
   const fieldTypes = [
     { value: 'text', label: 'Tekst', icon: Type },
@@ -130,7 +162,9 @@ export default function FormsPage() {
       description: '',
       category: 'camp_registration',
       linkedCampId: '',
+      linkedCampName: '',
       linkedSessionId: '',
+      linkedSessionName: '',
       fields: [],
       status: 'draft',
     });
@@ -174,7 +208,9 @@ export default function FormsPage() {
       description: form.description,
       category: form.category,
       linkedCampId: form.linkedCampId || '',
+      linkedCampName: form.linkedCampName || '',
       linkedSessionId: form.linkedSessionId || '',
+      linkedSessionName: form.linkedSessionName || '',
       fields: form.fields,
       status: form.status,
     });
@@ -190,22 +226,31 @@ export default function FormsPage() {
     setShowAddModal(true);
   };
 
-  const handleDelete = (id: string) => {
-    setForms(forms.filter(f => f.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/forms/${id}`);
+      setForms(forms.filter(f => f.id !== id));
+    } catch (error) {
+      console.error('Delete form error:', error);
+      alert('Nie udało się usunąć formularza');
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const uniqueId = (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
-      ? (crypto as any).randomUUID().replace(/-/g, '')
-      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 18)}`;
-    const shareLink = `/forms/${uniqueId}`;
-    if (editingForm) {
-      setForms(forms.map(f => f.id === editingForm.id ? { ...f, ...formData, updatedAt: new Date().toISOString().split('T')[0] } : f));
-    } else {
-      setForms([...forms, { id: uniqueId, ...formData, shareLink, createdAt: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString().split('T')[0], submissions: [] }]);
+    try {
+      if (editingForm) {
+        const { data } = await api.put(`/forms/${editingForm.id}`, { ...formData, stableId: activeStableId });
+        setForms(forms.map(f => f.id === editingForm.id ? data : f));
+      } else {
+        const { data } = await api.post('/forms', { ...formData, stableId: activeStableId });
+        setForms([...forms, data]);
+      }
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Save form error:', error);
+      alert('Nie udało się zapisać formularza');
     }
-    setShowAddModal(false);
   };
 
   const handleAddField = () => {
@@ -291,17 +336,28 @@ export default function FormsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Kreator formularzy</h1>
-              <p className="text-marineBlue">Twórz formularze, udostępniaj linki i zarządzaj zgłoszeniami</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Narzędzia</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Kreator formularzy</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Twórz formularze, udostępniaj linki i zarządzaj zgłoszeniami.
+                </p>
+              </div>
+              <button
+                onClick={handleAdd}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-5 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-5 h-5 text-oceanBlue" />
@@ -363,16 +419,6 @@ export default function FormsPage() {
             </button>
           </div>
 
-          {/* Add Button */}
-          <div className="mb-4 flex justify-end">
-            <button
-              onClick={handleAdd}
-              className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Nowy formularz</span>
-            </button>
-          </div>
 
           {/* Forms Tab */}
           {activeTab === 'forms' && (
@@ -607,26 +653,47 @@ export default function FormsPage() {
                         <label className="block text-sm font-medium text-deepNavy mb-2">Obóz (opcjonalnie)</label>
                         <select
                           value={formData.linkedCampId}
-                          onChange={(e) => setFormData({ ...formData, linkedCampId: e.target.value })}
+                          onChange={(e) => {
+                            const selectedCamp = camps.find((c: any) => c.id === e.target.value);
+                            setFormData({ 
+                              ...formData, 
+                              linkedCampId: e.target.value,
+                              linkedCampName: selectedCamp?.name || '',
+                              linkedSessionId: '',
+                              linkedSessionName: ''
+                            });
+                          }}
                           className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                         >
                           <option value="">Wybierz obóz</option>
-                          <option value="camp1">Obóz Letni 2024</option>
-                          <option value="camp2">Obóz Zimowy 2024</option>
+                          {camps.map((camp: any) => (
+                            <option key={camp.id} value={camp.id}>{camp.name}</option>
+                          ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-deepNavy mb-2">Turnus (opcjonalnie)</label>
-                        <select
-                          value={formData.linkedSessionId}
-                          onChange={(e) => setFormData({ ...formData, linkedSessionId: e.target.value })}
-                          className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                        >
-                          <option value="">Wybierz turnus</option>
-                          <option value="session1">Turnus 1 (8-15 lipca)</option>
-                          <option value="session2">Turnus 2 (16-23 lipca)</option>
-                        </select>
-                      </div>
+                      {formData.linkedCampId && (
+                        <div>
+                          <label className="block text-sm font-medium text-deepNavy mb-2">Turnus (opcjonalnie)</label>
+                          <select
+                            value={formData.linkedSessionId}
+                            onChange={(e) => {
+                              const camp = camps.find((c: any) => c.id === formData.linkedCampId);
+                              const session = camp?.sessions?.find((s: any) => s.id === e.target.value);
+                              setFormData({ 
+                                ...formData, 
+                                linkedSessionId: e.target.value,
+                                linkedSessionName: session?.name || ''
+                              });
+                            }}
+                            className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                          >
+                            <option value="">Wybierz turnus</option>
+                            {camps.find((c: any) => c.id === formData.linkedCampId)?.sessions?.map((session: any) => (
+                              <option key={session.id} value={session.id}>{session.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

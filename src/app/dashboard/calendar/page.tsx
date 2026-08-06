@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuthStore } from '@/lib/store';
 import api from '@/lib/api';
@@ -28,19 +28,27 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
+interface EventParticipantRef {
+  id: string;
+  name: string;
+  email?: string;
+}
+
 interface Event {
   id: string;
   title: string;
-  instructorId: number;
+  instructorId: string | null;
   startTime: string;
   endTime: string;
   date: Date;
   type: 'lesson' | 'training' | 'competition' | 'farrier';
   isGroup: boolean;
   location: number;
-  horseIds?: number[];
+  horseIds?: string[];
   assignHorseLater: boolean;
   clientName?: string;
+  participants?: EventParticipantRef[];
+  status?: string;
 }
 
 interface LaidOutEvent extends Event {
@@ -49,7 +57,7 @@ interface LaidOutEvent extends Event {
 }
 
 interface Instructor {
-  id: number;
+  id: string;
   name: string;
   color: string;
   textColor: string;
@@ -121,20 +129,9 @@ const instructorColors = [
   { color: 'bg-blue-900', textColor: 'text-blue-900', light: 'bg-blue-900/15' },
 ];
 
-const fallbackInstructors: Instructor[] = [
-  { id: 1, name: 'Anna Kowalska', ...instructorColors[0] },
-  { id: 2, name: 'Piotr Nowak', ...instructorColors[1] },
-  { id: 3, name: 'Maria Wiśniewska', ...instructorColors[2] },
-  { id: 4, name: 'Jan Kowalczyk', ...instructorColors[3] },
-];
+const fallbackInstructors: Instructor[] = [];
 
-const fallbackHorses = [
-  { id: 1, name: 'Błyskawica' },
-  { id: 2, name: 'Gwiazda' },
-  { id: 3, name: 'Huragan' },
-  { id: 4, name: 'Słońce' },
-  { id: 5, name: 'Wiatr' },
-];
+const fallbackHorses: { id: string; name: string }[] = [];
 
 const fallbackLocations = [
   { value: 1, label: 'Ujeżdżalnia', icon: <MapPin className="w-5 h-5" /> },
@@ -143,7 +140,7 @@ const fallbackLocations = [
   { value: 4, label: 'Pastwisko', icon: <Maximize2 className="w-5 h-5" /> },
 ];
 
-const fallbackClients: { id: number; name: string; email?: string }[] = [];
+const fallbackClients: { id: string; name: string; email?: string }[] = [];
 
 const fallbackServices = [
   { id: 1, name: 'Lekcja indywidualna', duration: 60, type: 'lesson' as const },
@@ -163,6 +160,7 @@ function DayAgendaList({
   onEmptyAdd,
   compact = false,
   instructors,
+  canAddEvents,
 }: {
   date: Date;
   events: Event[];
@@ -170,6 +168,7 @@ function DayAgendaList({
   onEmptyAdd: () => void;
   compact?: boolean;
   instructors: Instructor[];
+  canAddEvents: boolean;
 }) {
   const sorted = useMemo(() => {
     return [...events].sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
@@ -182,7 +181,7 @@ function DayAgendaList({
           <CalendarIcon className="w-7 h-7" />
         </div>
         <p className="text-sm text-marineBlue mb-3">Brak wizyt w tym dniu</p>
-        {!compact && (
+        {!compact && canAddEvents && (
           <button
             onClick={onEmptyAdd}
             className="px-4 py-2 bg-gradient-to-r from-oceanBlue to-marineBlue text-white rounded-xl text-sm font-medium flex items-center gap-2 mx-auto shadow-md hover:shadow-lg transition-all"
@@ -246,11 +245,13 @@ function AgendaView({
   events,
   onEventClick,
   instructors,
+  canAddEvents,
 }: {
   startDate: Date;
   events: Event[];
   onEventClick: (e: Event) => void;
   instructors: Instructor[];
+  canAddEvents: boolean;
 }) {
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(startDate, i)), [startDate]);
   const total = useMemo(
@@ -296,6 +297,7 @@ function AgendaView({
               onEmptyAdd={() => {}}
               compact={dayEvents.length === 0}
               instructors={instructors}
+              canAddEvents={canAddEvents}
             />
           </div>
         );
@@ -310,12 +312,14 @@ function MobileDayTimeline({
   instructors,
   onEventClick,
   onEmptyAdd,
+  canAddEvents,
 }: {
   date: Date;
   events: Event[];
   instructors: Instructor[];
   onEventClick: (e: Event) => void;
   onEmptyAdd: () => void;
+  canAddEvents: boolean;
 }) {
   const dayEvents = useMemo(
     () =>
@@ -332,13 +336,15 @@ function MobileDayTimeline({
           <CalendarIcon className="w-7 h-7" />
         </div>
         <p className="text-sm text-marineBlue mb-3">Brak wizyt w tym dniu</p>
-        <button
-          onClick={onEmptyAdd}
-          className="px-4 py-2 bg-gradient-to-r from-oceanBlue to-marineBlue text-white rounded-xl text-sm font-medium flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Dodaj wizytę
-        </button>
+        {canAddEvents && (
+          <button
+            onClick={onEmptyAdd}
+            className="px-4 py-2 bg-gradient-to-r from-oceanBlue to-marineBlue text-white rounded-xl text-sm font-medium flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Dodaj wizytę
+          </button>
+        )}
       </div>
     );
   }
@@ -412,6 +418,7 @@ function MobileWeekPager({
   instructors,
   onEventClick,
   onEmptyAddForDate,
+  canAddEvents,
 }: {
   weekDates: Date[];
   currentDate: Date;
@@ -419,6 +426,7 @@ function MobileWeekPager({
   instructors: Instructor[];
   onEventClick: (e: Event) => void;
   onEmptyAddForDate: (d: Date) => void;
+  canAddEvents: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -483,6 +491,7 @@ function MobileWeekPager({
               instructors={instructors}
               onEventClick={onEventClick}
               onEmptyAdd={() => onEmptyAddForDate(date)}
+              canAddEvents={canAddEvents}
             />
           </div>
         ))}
@@ -497,12 +506,14 @@ function MobileDayGrid({
   instructors,
   onEventClick,
   onEmptyAdd,
+  canAddEvents,
 }: {
   date: Date;
   events: Event[];
   instructors: Instructor[];
   onEventClick: (e: Event) => void;
   onEmptyAdd: () => void;
+  canAddEvents: boolean;
 }) {
   if (instructors.length === 0) {
     return (
@@ -511,13 +522,15 @@ function MobileDayGrid({
           <CalendarIcon className="w-7 h-7" />
         </div>
         <p className="text-sm text-marineBlue mb-3">Brak instruktorów w tym dniu</p>
-        <button
-          onClick={onEmptyAdd}
-          className="px-4 py-2 bg-gradient-to-r from-oceanBlue to-marineBlue text-white rounded-xl text-sm font-medium flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Dodaj wizytę
-        </button>
+        {canAddEvents && (
+          <button
+            onClick={onEmptyAdd}
+            className="px-4 py-2 bg-gradient-to-r from-oceanBlue to-marineBlue text-white rounded-xl text-sm font-medium flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Dodaj wizytę
+          </button>
+        )}
       </div>
     );
   }
@@ -587,10 +600,15 @@ function MobileDayGrid({
 
 export default function CalendarPage() {
   const router = useRouter();
-  const { user, isAuthenticated, activeStableId } = useAuthStore();
+  const { user, isAuthenticated, activeStableId, activeRole } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'day-list' | 'day' | 'week' | 'month'>('day-list');
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  const effectiveRole = activeRole || user?.role;
+  const isStableOwner = effectiveRole === 'STABLE_OWNER' || effectiveRole === 'ADMIN';
+  const isManager = effectiveRole === 'MANAGER';
+  const canAddEvents = isStableOwner || isManager;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -601,6 +619,18 @@ export default function CalendarPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const addParam = new URLSearchParams(window.location.search).get('add');
+    if (addParam === 'true') {
+      setSelectedDate(new Date());
+      setSelectedTime('');
+      setShowAddModal(true);
+      // Clean URL
+      window.history.replaceState({}, '', '/dashboard/calendar');
+    }
+  }, []);
+
   const [isDesktop, setIsDesktop] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
@@ -608,27 +638,31 @@ export default function CalendarPage() {
   const [horsePickerOpen, setHorsePickerOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [addStep, setAddStep] = useState(1);
-  const [selectedInstructor, setSelectedInstructor] = useState<number | null>(null);
+  const [selectedInstructor, setSelectedInstructor] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedType, setSelectedType] = useState<'lesson' | 'training' | 'competition' | 'farrier'>('lesson');
   const [isGroup, setIsGroup] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<number>(1);
-  const [selectedHorses, setSelectedHorses] = useState<number[]>([]);
+  const [selectedHorses, setSelectedHorses] = useState<string[]>([]);
   const [assignHorseLater, setAssignHorseLater] = useState(false);
-  const [filterInstructor, setFilterInstructor] = useState<number | null>(null);
+  const [filterInstructor, setFilterInstructor] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedClients, setSelectedClients] = useState<EventParticipantRef[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [showAddClientForm, setShowAddClientForm] = useState(false);
+  const [newClientLastName, setNewClientLastName] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [addClientLoading, setAddClientLoading] = useState(false);
   const [selectedService, setSelectedService] = useState<string>('');
   const [duration, setDuration] = useState(60);
   const [dayDetailsDate, setDayDetailsDate] = useState<Date | null>(null);
 
   const [instructors, setInstructors] = useState<Instructor[]>([]);
-  const [horses, setHorses] = useState<{ id: number; name: string }[]>(fallbackHorses);
+  const [horses, setHorses] = useState<{ id: string; name: string }[]>(fallbackHorses);
   const [locations, setLocations] = useState(fallbackLocations);
-  const [clients, setClients] = useState<{ id: number; name: string; email?: string }[]>(fallbackClients);
+  const [clients, setClients] = useState<{ id: string; name: string; email?: string }[]>(fallbackClients);
   const [services, setServices] = useState<{ id: number; name: string; duration: number; type: 'lesson' | 'training' | 'competition' }[]>(fallbackServices);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
@@ -650,29 +684,39 @@ export default function CalendarPage() {
 
         const { data } = await api.get(`/calendar?stableId=${activeStableId}&startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`);
 
-        setEvents((data || []).map((e: any, idx: number) => ({
+        setEvents((data || []).map((e: any) => ({
           id: e.id,
           title: e.title,
-          instructorId: idx + 1,
+          instructorId: e.instructorId || null,
           startTime: e.startTime || '09:00',
           endTime: e.endTime || '10:00',
           date: new Date(e.date),
           type: e.type || 'lesson',
-          isGroup: e.maxParticipants > 1,
+          isGroup: (e.participants || []).length > 1,
           location: 1,
-          clientName: e.participants?.[0]?.user ? `${e.participants[0].user.firstName} ${e.participants[0].user.lastName}` : '',
+          horseIds: e.horseIds || [],
+          assignHorseLater: !!e.assignHorseLater,
+          status: e.status,
+          participants: (e.participants || []).map((p: any) => ({
+            id: p.userId || p.user?.id,
+            name: `${p.user?.firstName || ''} ${p.user?.lastName || ''}`.trim(),
+            email: p.user?.email,
+          })),
+          clientName: (e.participants || [])
+            .map((p: any) => `${p.user?.firstName || ''} ${p.user?.lastName || ''}`.trim())
+            .join(', '),
         })));
 
-        // Load stable data for instructors, horses, etc.
-        const stableRes = await api.get(`/stables/${activeStableId}`);
-        const stable = stableRes.data;
+        // Load real services for this stable
+        const servicesRes = await api.get(`/services?stableId=${activeStableId}`);
+        const servicesData = servicesRes.data || [];
 
         setServices(
-          (stable.services || []).map((s: string, idx: number) => ({
-            id: idx + 1,
-            name: s,
-            duration: 60,
-            type: 'lesson' as const,
+          (Array.isArray(servicesData) ? servicesData : []).map((s: any, idx: number) => ({
+            id: s.id || idx + 1,
+            name: s.name || '',
+            duration: typeof s.duration === 'number' ? s.duration : 60,
+            type: (s.type || 'lesson') as 'lesson' | 'training' | 'competition',
           }))
         );
 
@@ -689,16 +733,21 @@ export default function CalendarPage() {
           }))
         );
 
-        // Load clients from API
+        // Load clients from the shared HORSEmanago client base, scoped to this stable
         const clientsRes = await api.get(`/clients?stableId=${activeStableId}`);
         const clientsData = clientsRes.data || [];
         setClients(
           clientsData.map((c: any) => ({
-            id: c.id,
+            id: c.userId || c.user.id,
             name: `${c.user.firstName} ${c.user.lastName}`,
             email: c.user.email,
           }))
         );
+
+        // Load real horses of this stable (no fake/placeholder horses)
+        const horsesRes = await api.get(`/horses?stableId=${activeStableId}&status=ACTIVE`);
+        const horsesData = horsesRes.data || [];
+        setHorses(horsesData.map((h: any) => ({ id: h.id, name: h.name })));
       } catch (err) {
         console.error('Load calendar data error:', err);
         setInstructors([]);
@@ -819,7 +868,7 @@ export default function CalendarPage() {
     if (!selectedEvent) return;
     setEditingEventId(selectedEvent.id);
     setAddStep(1);
-    setSelectedClients(selectedEvent.clientName ? selectedEvent.clientName.split(', ') : []);
+    setSelectedClients(selectedEvent.participants || []);
     setSelectedService(selectedEvent.title);
     setDuration(toMinutes(selectedEvent.endTime) - toMinutes(selectedEvent.startTime));
     setSelectedType(selectedEvent.type);
@@ -834,7 +883,7 @@ export default function CalendarPage() {
     setShowAddModal(true);
   };
 
-  const handleAddEventSubmit = async () => {
+  const handleAddEventSubmit = async (force: boolean = false) => {
     if (selectedInstructor && selectedDate && selectedTime && selectedClients.length > 0) {
       const [h, m] = selectedTime.split(':').map(Number);
       const startMin = h * 60 + (m || 0);
@@ -854,23 +903,45 @@ export default function CalendarPage() {
         location: selectedLocation,
         horseIds: assignHorseLater ? [] : selectedHorses,
         assignHorseLater,
-        clientName: selectedClients.join(', '),
+        participantUserIds: selectedClients.map((c) => c.id),
         stableId: activeStableId,
+        force,
       };
 
       try {
         if (editingEventId) {
           const { data } = await api.put(`/calendar/${editingEventId}`, eventData);
-          setEvents(events.map((e) => (e.id === editingEventId ? { ...data, date: new Date(data.date) } : e)));
+          setEvents(events.map((e) => (e.id === editingEventId ? {
+            ...e, ...data, date: new Date(data.date),
+            participants: (data.participants || []).map((p: any) => ({ id: p.userId || p.user?.id, name: `${p.user?.firstName || ''} ${p.user?.lastName || ''}`.trim(), email: p.user?.email })),
+          } : e)));
         } else {
           const { data } = await api.post('/calendar', eventData);
-          setEvents([...events, { ...data, date: new Date(data.date) }]);
+          setEvents([...events, {
+            ...data, date: new Date(data.date),
+            participants: (data.participants || []).map((p: any) => ({ id: p.userId || p.user?.id, name: `${p.user?.firstName || ''} ${p.user?.lastName || ''}`.trim(), email: p.user?.email })),
+          }]);
         }
         setEditingEventId(null);
         setShowAddModal(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Save event error:', error);
-        alert('Nie udało się zapisać wydarzenia');
+        if (error?.response?.status === 409) {
+          const conflicts = error.response.data?.conflicts || [];
+          const hasHorseConflict = conflicts.some((c: any) => c.type === 'horse');
+          const hasInstructorConflict = conflicts.some((c: any) => c.type === 'instructor');
+          const messages = [];
+          if (hasHorseConflict) messages.push('wybrany koń jest już zajęty w tym terminie');
+          if (hasInstructorConflict) messages.push('instruktor ma już inne zajęcia w tym terminie');
+          const confirmForce = confirm(
+            `Konflikt terminu: ${messages.join(' i ')}.\n\nCzy chcesz zapisać wizytę mimo to?`
+          );
+          if (confirmForce) {
+            await handleAddEventSubmit(true);
+          }
+        } else {
+          alert('Nie udało się zapisać wydarzenia');
+        }
       }
     }
   };
@@ -932,21 +1003,22 @@ export default function CalendarPage() {
         <main className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
           {/* Masthead */}
           <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
-            <div className="p-6 sm:p-8 lg:p-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
               <div>
-                <p className="text-white/60 text-xs uppercase tracking-[0.2em] mb-2">Plan zajęć</p>
-                <h1 className="font-serif text-3xl sm:text-4xl font-bold">Kalendarz</h1>
-                <p className="text-white/75 text-sm sm:text-base mt-2 max-w-md">
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Plan zajęć</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Kalendarz</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
                   Zarządzaj rezerwacjami, instruktorami i harmonogramem w jednym miejscu.
                 </p>
               </div>
-              <button
-                onClick={handleAddEvent}
-                className="shrink-0 px-6 py-3.5 bg-white text-deepNavy rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Dodaj wizytę
-              </button>
+              {canAddEvents && (
+                <button
+                  onClick={handleAddEvent}
+                  className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+                >
+                  <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1100,6 +1172,7 @@ export default function CalendarPage() {
                       setSelectedTime('');
                       setShowAddModal(true);
                     }}
+                    canAddEvents={canAddEvents}
                   />
                 </div>
 
@@ -1299,6 +1372,7 @@ export default function CalendarPage() {
                       setSelectedTime('');
                       setShowAddModal(true);
                     }}
+                    canAddEvents={canAddEvents}
                   />
                 </div>
 
@@ -1397,6 +1471,7 @@ export default function CalendarPage() {
                     setShowAddModal(true);
                   }}
                   instructors={instructors}
+                  canAddEvents={canAddEvents}
                 />
               </div>
             )}
@@ -1461,6 +1536,7 @@ export default function CalendarPage() {
                   setDayDetailsDate(null);
                   handleEventClick(event);
                 }}
+                canAddEvents={canAddEvents}
                 onEmptyAdd={() => {
                   setSelectedDate(dayDetailsDate);
                   setSelectedTime('');
@@ -1534,10 +1610,10 @@ export default function CalendarPage() {
                     <h3 className="font-serif text-base sm:text-lg font-bold text-deepNavy">Wybierz klientów</h3>
                     {selectedClients.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {selectedClients.map((client, index) => (
-                          <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-oceanBlue/10 text-oceanBlue rounded-full text-sm font-medium">
-                            <span>{client}</span>
-                            <button onClick={() => setSelectedClients(selectedClients.filter((_, i) => i !== index))} className="hover:text-oceanBlue/70">
+                        {selectedClients.map((client) => (
+                          <div key={client.id} className="flex items-center gap-2 px-3 py-1.5 bg-oceanBlue/10 text-oceanBlue rounded-full text-sm font-medium">
+                            <span>{client.name}</span>
+                            <button onClick={() => setSelectedClients(selectedClients.filter((c) => c.id !== client.id))} className="hover:text-oceanBlue/70">
                               <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -1561,12 +1637,12 @@ export default function CalendarPage() {
                       {clientSearch && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-iceBlue rounded-2xl shadow-xl z-10 max-h-52 overflow-y-auto">
                           {clients
-                            .filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()) && !selectedClients.includes(c.name))
+                            .filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()) && !selectedClients.some((sc) => sc.id === c.id))
                             .map((client) => (
                               <button
                                 key={client.id}
                                 onClick={() => {
-                                  setSelectedClients([...selectedClients, client.name]);
+                                  setSelectedClients([...selectedClients, { id: client.id, name: client.name, email: client.email }]);
                                   setClientSearch('');
                                 }}
                                 className="w-full px-4 py-3 text-left hover:bg-arcticBlue/50 transition-colors text-sm text-deepNavy border-b border-iceBlue/30 last:border-0"
@@ -1574,14 +1650,12 @@ export default function CalendarPage() {
                                 {client.name}
                               </button>
                             ))}
-                          {clients.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()) && !selectedClients.includes(c.name)).length === 0 && (
-                            <button
-                              onClick={() => setShowAddClientForm(true)}
-                              className="w-full px-4 py-3 text-left hover:bg-arcticBlue/50 transition-colors text-sm text-oceanBlue font-semibold"
-                            >
-                              + Dodaj nowego klienta
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setShowAddClientForm(true)}
+                            className="w-full px-4 py-3 text-left hover:bg-arcticBlue/50 transition-colors text-sm text-oceanBlue font-semibold border-t border-iceBlue/30"
+                          >
+                            + Dodaj nowego klienta
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1830,7 +1904,7 @@ export default function CalendarPage() {
                       Wstecz
                     </button>
                     <button
-                      onClick={handleAddEventSubmit}
+                      onClick={() => handleAddEventSubmit()}
                       disabled={assignHorseLater ? false : selectedHorses.length === 0}
                       className="flex-1 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-oceanBlue to-marineBlue text-white disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                     >
@@ -1845,57 +1919,97 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Add client mini modal */}
+      {/* Add client mini modal - creates a real client in the shared HORSEmanago client base */}
       {showAddClientForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
             <h3 className="font-serif text-xl font-bold text-deepNavy mb-4">Dodaj nowego klienta</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-deepNavy mb-2">Imię i nazwisko</label>
+                <label className="block text-sm font-medium text-deepNavy mb-2">Imię</label>
                 <input
                   type="text"
-                  placeholder="Jan Kowalski"
+                  placeholder="Jan"
                   value={clientSearch}
                   onChange={(e) => setClientSearch(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl border border-iceBlue focus:outline-none focus:ring-2 focus:ring-oceanBlue/50 text-deepNavy"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-deepNavy mb-2">Numer telefonu</label>
+                <label className="block text-sm font-medium text-deepNavy mb-2">Nazwisko</label>
                 <input
-                  type="tel"
-                  placeholder="+48 123 456 789"
+                  type="text"
+                  placeholder="Kowalski"
+                  value={newClientLastName}
+                  onChange={(e) => setNewClientLastName(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl border border-iceBlue focus:outline-none focus:ring-2 focus:ring-oceanBlue/50 text-deepNavy"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-deepNavy mb-2">Email (opcjonalnie)</label>
+                <label className="block text-sm font-medium text-deepNavy mb-2">Email</label>
                 <input
                   type="email"
                   placeholder="jan.kowalski@email.com"
+                  value={newClientEmail}
+                  onChange={(e) => setNewClientEmail(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl border border-iceBlue focus:outline-none focus:ring-2 focus:ring-oceanBlue/50 text-deepNavy"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-deepNavy mb-2">Numer telefonu (opcjonalnie)</label>
+                <input
+                  type="tel"
+                  placeholder="+48 123 456 789"
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl border border-iceBlue focus:outline-none focus:ring-2 focus:ring-oceanBlue/50 text-deepNavy"
+                />
+              </div>
+              <p className="text-xs text-marineBlue/80 bg-iceBlue/50 rounded-xl p-3">
+                Klient zostanie dodany do wspólnej bazy HORSEmanago i otrzyma email z zaproszeniem, jeśli nie ma jeszcze konta.
+              </p>
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setShowAddClientForm(false)}
+                  onClick={() => { setShowAddClientForm(false); setNewClientLastName(''); setNewClientEmail(''); setNewClientPhone(''); }}
                   className="flex-1 px-4 py-3 rounded-2xl border border-iceBlue text-deepNavy hover:bg-iceBlue/20 transition-colors font-semibold"
                 >
                   Anuluj
                 </button>
                 <button
-                  onClick={() => {
-                    if (clientSearch) {
-                      setSelectedClients([...selectedClients, clientSearch]);
+                  onClick={async () => {
+                    if (!clientSearch.trim() || !newClientEmail.trim() || !activeStableId) return;
+                    setAddClientLoading(true);
+                    try {
+                      const { data } = await api.post('/clients', {
+                        stableId: activeStableId,
+                        firstName: clientSearch.trim(),
+                        lastName: newClientLastName.trim(),
+                        email: newClientEmail.trim(),
+                        phone: newClientPhone.trim() || undefined,
+                      });
+                      const newClient = {
+                        id: data.userId || data.user.id,
+                        name: `${data.user.firstName} ${data.user.lastName}`,
+                        email: data.user.email,
+                      };
+                      setClients([newClient, ...clients]);
+                      setSelectedClients([...selectedClients, newClient]);
                       setClientSearch('');
+                      setNewClientLastName('');
+                      setNewClientEmail('');
+                      setNewClientPhone('');
                       setShowAddClientForm(false);
+                    } catch (error: any) {
+                      console.error('Add client error:', error);
+                      alert(error?.response?.data?.error || 'Nie udało się dodać klienta');
+                    } finally {
+                      setAddClientLoading(false);
                     }
                   }}
-                  disabled={!clientSearch}
+                  disabled={!clientSearch.trim() || !newClientEmail.trim() || addClientLoading}
                   className="flex-1 px-4 py-3 rounded-2xl bg-gradient-to-r from-oceanBlue to-marineBlue text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all font-semibold"
                 >
-                  Dodaj
+                  {addClientLoading ? 'Dodawanie...' : 'Dodaj'}
                 </button>
               </div>
             </div>
@@ -1991,13 +2105,26 @@ export default function CalendarPage() {
                           return (
                             <button
                               key={horse.id}
-                              onClick={() => {
+                              onClick={async () => {
                                 const nextIds = selected
                                   ? (selectedEvent.horseIds || []).filter((id) => id !== horse.id)
                                   : [...(selectedEvent.horseIds || []), horse.id];
-                                const updated = { ...selectedEvent, horseIds: nextIds, assignHorseLater: false } as Event;
-                                setEvents((prev) => prev.map((e) => (e.id === selectedEvent.id ? updated : e)));
-                                setSelectedEvent(updated);
+                                try {
+                                  const { data } = await api.put(`/calendar/${selectedEvent.id}`, {
+                                    horseIds: nextIds,
+                                    assignHorseLater: false,
+                                  });
+                                  const updated = { ...selectedEvent, horseIds: data.horseIds, assignHorseLater: false } as Event;
+                                  setEvents((prev) => prev.map((e) => (e.id === selectedEvent.id ? updated : e)));
+                                  setSelectedEvent(updated);
+                                } catch (error: any) {
+                                  console.error('Assign horse error:', error);
+                                  if (error?.response?.status === 409) {
+                                    alert('Ten koń jest już zajęty w tym terminie.');
+                                  } else {
+                                    alert('Nie udało się przypisać konia');
+                                  }
+                                }
                               }}
                               className={`p-3 rounded-2xl border-2 text-left text-sm font-medium transition-all flex items-center gap-2 ${
                                 selected
@@ -2012,10 +2139,16 @@ export default function CalendarPage() {
                         })}
                       </div>
                       <button
-                        onClick={() => {
-                          const updated = { ...selectedEvent, horseIds: [], assignHorseLater: true } as Event;
-                          setEvents((prev) => prev.map((e) => (e.id === selectedEvent.id ? updated : e)));
-                          setSelectedEvent(updated);
+                        onClick={async () => {
+                          try {
+                            await api.put(`/calendar/${selectedEvent.id}`, { horseIds: [], assignHorseLater: true, force: true });
+                            const updated = { ...selectedEvent, horseIds: [], assignHorseLater: true } as Event;
+                            setEvents((prev) => prev.map((e) => (e.id === selectedEvent.id ? updated : e)));
+                            setSelectedEvent(updated);
+                          } catch (error) {
+                            console.error('Unassign horse error:', error);
+                            alert('Nie udało się zapisać zmiany');
+                          }
                         }}
                         className={`w-full p-3 rounded-2xl border-2 text-sm font-medium transition-all ${
                           selectedEvent.assignHorseLater

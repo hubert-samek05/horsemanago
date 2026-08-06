@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -85,6 +85,7 @@ export default function FeedingPage() {
 
   const [feedingSchedules, setFeedingSchedules] = useState<any[]>([]);
   const [feedInventory, setFeedInventory] = useState<any[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -94,11 +95,19 @@ export default function FeedingPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const { data } = await api.get(`/feeding?stableId=${activeStableId}`);
-        setFeedingSchedules(data || []);
+        const [schedulesRes, inventoryRes, horsesRes] = await Promise.all([
+          api.get(`/feeding/schedules?stableId=${activeStableId}`),
+          api.get(`/feeding/inventory?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`)
+        ]);
+        setFeedingSchedules(schedulesRes.data || []);
+        setFeedInventory(inventoryRes.data || []);
+        setHorses(horsesRes.data || []);
       } catch (error) {
-        console.error('Load feeding schedules error:', error);
+        console.error('Load data error:', error);
         setFeedingSchedules([]);
+        setFeedInventory([]);
+        setHorses([]);
       } finally {
         setLoading(false);
       }
@@ -660,25 +669,40 @@ export default function FeedingPage() {
 
               <form onSubmit={handleSubmitSchedule} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa konia</label>
-                  <input
-                    type="text"
-                    value={scheduleFormData.horseName}
-                    onChange={(e) => setScheduleFormData({ ...scheduleFormData, horseName: e.target.value })}
+                  <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
+                  <select
+                    value={scheduleFormData.horseId}
+                    onChange={(e) => {
+                      const selectedHorse = horses.find(h => h.id === e.target.value);
+                      setScheduleFormData({
+                        ...scheduleFormData,
+                        horseId: e.target.value,
+                        horseName: selectedHorse?.name || '',
+                      });
+                    }}
                     className="w-full px-4 py-3 bg-arcticBlue/30 border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz konia</option>
+                    {horses.map((horse) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Typ karmy</label>
-                  <input
-                    type="text"
+                  <select
                     value={scheduleFormData.feedType}
                     onChange={(e) => setScheduleFormData({ ...scheduleFormData, feedType: e.target.value })}
                     className="w-full px-4 py-3 bg-arcticBlue/30 border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz typ</option>
+                    {feedTypes.map((type) => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

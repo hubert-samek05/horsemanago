@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -116,6 +116,8 @@ export default function BoardingPage() {
 
   const [boxes, setBoxes] = useState<any[]>([]);
   const [horses, setHorses] = useState<any[]>([]);
+  const [stableHorses, setStableHorses] = useState<{ id: string; name: string }[]>([]);
+  const [stableClients, setStableClients] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -125,12 +127,16 @@ export default function BoardingPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const [boxesRes, horsesRes] = await Promise.all([
+        const [boxesRes, horsesRes, allHorsesRes, clientsRes] = await Promise.all([
           api.get(`/boarding/boxes?stableId=${activeStableId}`),
           api.get(`/boarding/horses?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}&status=ACTIVE`),
+          api.get(`/clients?stableId=${activeStableId}`),
         ]);
         setBoxes(boxesRes.data || []);
         setHorses(horsesRes.data || []);
+        setStableHorses((allHorsesRes.data || []).map((h: any) => ({ id: h.id, name: h.name })));
+        setStableClients((clientsRes.data || []).map((c: any) => ({ id: c.userId || c.user.id, name: `${c.user.firstName} ${c.user.lastName}` })));
       } catch (error) {
         console.error('Load boarding data error:', error);
         setBoxes([]);
@@ -385,12 +391,26 @@ export default function BoardingPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Pensjonat</h1>
-              <p className="text-marineBlue">Zarządzaj boksem i miejscami dla koni</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Zarządzanie</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Pensjonat</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj boksem i miejscami dla koni.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (activeTab === 'boxes') handleAddBox();
+                  else if (activeTab === 'horses') handleAddHorse();
+                }}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
           </div>
 
@@ -431,24 +451,15 @@ export default function BoardingPage() {
           {/* Boxes Tab */}
           {activeTab === 'boxes' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj boksu..."
-                    value={boxSearchTerm}
-                    onChange={(e) => setBoxSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={handleAddBox}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj boks</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj boksu..."
+                  value={boxSearchTerm}
+                  onChange={(e) => setBoxSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredBoxes.map((box) => (
@@ -503,24 +514,15 @@ export default function BoardingPage() {
           {/* Horses Tab */}
           {activeTab === 'horses' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj konia..."
-                    value={horseSearchTerm}
-                    onChange={(e) => setHorseSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={handleAddHorse}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj konia</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj konia..."
+                  value={horseSearchTerm}
+                  onChange={(e) => setHorseSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredHorses.map((horse) => {
@@ -575,7 +577,7 @@ export default function BoardingPage() {
           {/* Reports Tab */}
           {activeTab === 'reports' && (
             <div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+              <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                 <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Home className="w-5 h-5 text-oceanBlue" />
@@ -642,7 +644,7 @@ export default function BoardingPage() {
                   <button onClick={() => { setEditingBox(selectedBox); setSelectedBox(null); setShowAddBoxModal(true); }} className="p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors">
                     <Edit2 className="w-5 h-5" />
                   </button>
-                  <button onClick={() => { setBoxes(boxes.filter(b => b.id !== selectedBox.id)); setSelectedBox(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
+                  <button onClick={() => { handleDeleteBox(selectedBox.id); setSelectedBox(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
                     <Trash2 className="w-5 h-5" />
                   </button>
                   <button onClick={() => setSelectedBox(null)} className="p-2 hover:bg-iceBlue rounded-xl transition-colors">
@@ -889,7 +891,7 @@ export default function BoardingPage() {
                   <button onClick={() => { setEditingHorse(selectedHorse); setSelectedHorse(null); setShowAddHorseModal(true); }} className="p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors">
                     <Edit2 className="w-5 h-5" />
                   </button>
-                  <button onClick={() => { setHorses(horses.filter(h => h.id !== selectedHorse.id)); setSelectedHorse(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
+                  <button onClick={() => { handleDeleteHorse(selectedHorse.id); setSelectedHorse(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
                     <Trash2 className="w-5 h-5" />
                   </button>
                   <button onClick={() => setSelectedHorse(null)} className="p-2 hover:bg-iceBlue rounded-xl transition-colors">
@@ -998,24 +1000,38 @@ export default function BoardingPage() {
                   <h3 className="font-semibold text-deepNavy mb-4">Podstawowe informacje</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa konia</label>
-                      <input
-                        type="text"
-                        value={horseFormData.horseName}
-                        onChange={(e) => setHorseFormData({ ...horseFormData, horseName: e.target.value })}
+                      <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
+                      <select
+                        value={horseFormData.horseId}
+                        onChange={(e) => {
+                          const h = stableHorses.find(sh => sh.id === e.target.value);
+                          setHorseFormData({ ...horseFormData, horseId: e.target.value, horseName: h?.name || '' });
+                        }}
                         className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                         required
-                      />
+                      >
+                        <option value="">Wybierz konia</option>
+                        {stableHorses.map((h) => (
+                          <option key={h.id} value={h.id}>{h.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa klienta</label>
-                      <input
-                        type="text"
-                        value={horseFormData.clientName}
-                        onChange={(e) => setHorseFormData({ ...horseFormData, clientName: e.target.value })}
+                      <label className="block text-sm font-medium text-deepNavy mb-2">Klient</label>
+                      <select
+                        value={horseFormData.clientId}
+                        onChange={(e) => {
+                          const c = stableClients.find(sc => sc.id === e.target.value);
+                          setHorseFormData({ ...horseFormData, clientId: e.target.value, clientName: c?.name || '' });
+                        }}
                         className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                         required
-                      />
+                      >
+                        <option value="">Wybierz klienta</option>
+                        {stableClients.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>

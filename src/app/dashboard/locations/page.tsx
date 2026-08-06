@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -151,19 +151,24 @@ export default function LocationsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-1">Miejsca</h1>
-              <p className="text-marineBlue text-sm">Zarządzaj lokalizacjami stajni</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Infrastruktura</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Miejsca</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj lokalizacjami i infrastrukturą stajni.
+                </p>
+              </div>
+              <button
+                onClick={handleAddLocation}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
-            <button
-              onClick={handleAddLocation}
-              className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-5 py-3 rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Dodaj miejsce</span>
-            </button>
           </div>
 
           <div className="relative mb-6">
@@ -177,41 +182,58 @@ export default function LocationsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredLocations.map((location) => (
-              <div key={location.id} onClick={() => setSelectedLocation(location)} className="bg-white rounded-2xl p-5 shadow-md border border-iceBlue hover:shadow-lg transition-all cursor-pointer">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <h3 className="font-serif text-lg font-bold text-deepNavy mb-1">{location.name}</h3>
-                    <p className="text-sm text-marineBlue line-clamp-2">{location.description}</p>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={(e) => { e.stopPropagation(); handleEditLocation(location); }} className="p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors">
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteLocation(location.id); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-arcticBlue/40 rounded-2xl p-3 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-oceanBlue" />
-                    <div>
-                      <p className="text-xs text-marineBlue">Typ</p>
-                      <p className="text-sm font-semibold text-deepNavy">{locationTypes.find(t => t.value === location.type)?.label}</p>
-                    </div>
-                  </div>
-                  <div className="bg-arcticBlue/40 rounded-2xl p-3 flex items-center gap-2">
-                    <div>
-                      <p className="text-xs text-marineBlue">Pojemność</p>
-                      <p className="text-sm font-semibold text-deepNavy">{location.capacity}</p>
-                    </div>
-                  </div>
-                </div>
+          {filteredLocations.length === 0 ? (
+            <div className="bg-white rounded-3xl shadow-lg border border-iceBlue p-8 text-center">
+              <div className="w-20 h-20 rounded-full bg-arcticBlue/50 flex items-center justify-center mx-auto mb-4">
+                <Plus className="w-10 h-10 text-oceanBlue" />
               </div>
-            ))}
-          </div>
+              <h3 className="font-serif text-xl font-bold text-deepNavy mb-2">Brak miejsc</h3>
+              <p className="text-marineBlue mb-6">Dodaj pierwsze miejsce i zarządzaj infrastrukturą stajni</p>
+              <button
+                onClick={handleAddLocation}
+                className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 mx-auto"
+              >
+                <Plus className="w-5 h-5" />
+                Dodaj pierwsze miejsce
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredLocations.map((location) => (
+                <div key={location.id} onClick={() => setSelectedLocation(location)} className="bg-white rounded-2xl p-5 shadow-md border border-iceBlue hover:shadow-lg transition-all cursor-pointer">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-deepNavy mb-1">{location.name}</h3>
+                      <p className="text-sm text-marineBlue line-clamp-2">{location.description}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={(e) => { e.stopPropagation(); handleEditLocation(location); }} className="p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteLocation(location.id); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-arcticBlue/40 rounded-2xl p-3 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-oceanBlue" />
+                      <div>
+                        <p className="text-xs text-marineBlue">Typ</p>
+                        <p className="text-sm font-semibold text-deepNavy">{locationTypes.find(t => t.value === location.type)?.label}</p>
+                      </div>
+                    </div>
+                    <div className="bg-arcticBlue/40 rounded-2xl p-3 flex items-center gap-2">
+                      <div>
+                        <p className="text-xs text-marineBlue">Pojemność</p>
+                        <p className="text-sm font-semibold text-deepNavy">{location.capacity}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

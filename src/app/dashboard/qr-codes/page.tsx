@@ -1,13 +1,14 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-import { useState } from 'react';
+export const dynamic = 'force-static';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
 import Image from 'next/image';
 import { Menu, QrCode, Copy, Share2, Download, Link, Users, Calendar, Eye, Plus, X } from 'lucide-react';
+import api from '@/lib/api';
 
 interface QRCode {
   id: string;
@@ -36,11 +37,12 @@ interface ShareLink {
 
 export default function QRCodesPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, activeStableId } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'qr-codes' | 'share-links'>('qr-codes');
   const [showAddQRModal, setShowAddQRModal] = useState(false);
   const [showAddLinkModal, setShowAddLinkModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [qrFormData, setQrFormData] = useState({
     name: '',
@@ -66,71 +68,44 @@ export default function QRCodesPage() {
     return null;
   }
 
-  const [qrCodes, setQRCodes] = useState<QRCode[]>([
-    {
-      id: '1',
-      name: 'QR Code Stajni',
-      type: 'stable',
-      targetId: '1',
-      targetName: 'Stajnia Horsemanago',
-      url: 'https://horsemanago.net/stable/horsemanago',
-      createdAt: '2024-03-01',
-      scans: 156,
-      active: true,
-    },
-    {
-      id: '2',
-      name: 'QR Code - Błyskawica',
-      type: 'horse',
-      targetId: '1',
-      targetName: 'Błyskawica',
-      url: 'https://horsemanago.net/horse/blyskawica',
-      createdAt: '2024-03-05',
-      scans: 45,
-      active: true,
-    },
-    {
-      id: '3',
-      name: 'QR Code - Gwiazda',
-      type: 'horse',
-      targetId: '2',
-      targetName: 'Gwiazda',
-      url: 'https://horsemanago.net/horse/gwiazda',
-      createdAt: '2024-03-10',
-      scans: 32,
-      active: true,
-    },
-  ]);
+  const [qrCodes, setQRCodes] = useState<QRCode[]>([]);
+  const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);
 
-  const [shareLinks, setShareLinks] = useState<ShareLink[]>([
-    {
-      id: '1',
-      name: 'Portal klienta',
-      type: 'client_portal',
-      url: 'https://horsemanago.net/client/portal',
-      createdAt: '2024-03-01',
-      clicks: 89,
-      active: true,
-    },
-    {
-      id: '2',
-      name: 'Rezerwacja lekcji',
-      type: 'booking',
-      url: 'https://horsemanago.net/booking',
-      createdAt: '2024-03-05',
-      clicks: 67,
-      active: true,
-    },
-    {
-      id: '3',
-      name: 'Harmonogram',
-      type: 'schedule',
-      url: 'https://horsemanago.net/schedule',
-      createdAt: '2024-03-10',
-      clicks: 43,
-      active: true,
-    },
-  ]);
+  useEffect(() => {
+    if (!activeStableId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const loadData = async () => {
+      try {
+        const [qrRes, linksRes] = await Promise.all([
+          api.get(`/qr-codes?stableId=${activeStableId}`),
+          api.get(`/share-links?stableId=${activeStableId}`)
+        ]);
+        setQRCodes(qrRes.data || []);
+        setShareLinks(linksRes.data || []);
+      } catch (error) {
+        console.error('Load data error:', error);
+        setQRCodes([]);
+        setShareLinks([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [activeStableId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
+        <div className="lg:ml-72 min-h-screen flex items-center justify-center">
+          <p className="text-marineBlue">Ładowanie kodów QR...</p>
+        </div>
+      </div>
+    );
+  }
 
   const qrTypes = [
     { value: 'stable', label: 'Stajnia' },
@@ -159,10 +134,16 @@ export default function QRCodesPage() {
     setShowAddQRModal(true);
   };
 
-  const handleSubmitQR = (e: React.FormEvent) => {
+  const handleSubmitQR = async (e: React.FormEvent) => {
     e.preventDefault();
-    setQRCodes([...qrCodes, { id: Date.now().toString(), ...qrFormData, createdAt: new Date().toISOString().split('T')[0], scans: 0 }]);
-    setShowAddQRModal(false);
+    try {
+      const { data } = await api.post('/qr-codes', { ...qrFormData, stableId: activeStableId });
+      setQRCodes([...qrCodes, data]);
+      setShowAddQRModal(false);
+    } catch (error) {
+      console.error('Save QR code error:', error);
+      alert('Nie udało się utworzyć kodu QR');
+    }
   };
 
   const handleAddLink = () => {
@@ -177,10 +158,16 @@ export default function QRCodesPage() {
     setShowAddLinkModal(true);
   };
 
-  const handleSubmitLink = (e: React.FormEvent) => {
+  const handleSubmitLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    setShareLinks([...shareLinks, { id: Date.now().toString(), ...linkFormData, createdAt: new Date().toISOString().split('T')[0], clicks: 0 }]);
-    setShowAddLinkModal(false);
+    try {
+      const { data } = await api.post('/share-links', { ...linkFormData, stableId: activeStableId });
+      setShareLinks([...shareLinks, data]);
+      setShowAddLinkModal(false);
+    } catch (error) {
+      console.error('Save share link error:', error);
+      alert('Nie udało się utworzyć linku');
+    }
   };
 
   const handleCopy = (text: string) => {

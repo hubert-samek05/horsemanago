@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -63,6 +63,8 @@ export default function DocumentsPage() {
   }
 
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -72,11 +74,19 @@ export default function DocumentsPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const { data } = await api.get(`/documents?stableId=${activeStableId}`);
-        setDocuments(data || []);
+        const [docsRes, clientsRes, horsesRes] = await Promise.all([
+          api.get(`/documents?stableId=${activeStableId}`),
+          api.get(`/clients?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`)
+        ]);
+        setDocuments(docsRes.data || []);
+        setClients(clientsRes.data || []);
+        setHorses(horsesRes.data || []);
       } catch (error) {
-        console.error('Load documents error:', error);
+        console.error('Load data error:', error);
         setDocuments([]);
+        setClients([]);
+        setHorses([]);
       } finally {
         setLoading(false);
       }
@@ -469,22 +479,36 @@ export default function DocumentsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Klient</label>
-                  <input
-                    type="text"
-                    value={formData.clientName}
-                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                  <select
+                    value={formData.clientId}
+                    onChange={(e) => {
+                      const client = clients.find((c: any) => c.id === e.target.value);
+                      setFormData({ ...formData, clientId: e.target.value, clientName: client ? `${client.user.firstName} ${client.user.lastName}` : '' });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                  />
+                  >
+                    <option value="">Brak</option>
+                    {clients.map((client: any) => (
+                      <option key={client.id} value={client.id}>{client.user.firstName} {client.user.lastName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
-                  <input
-                    type="text"
-                    value={formData.horseName}
-                    onChange={(e) => setFormData({ ...formData, horseName: e.target.value })}
+                  <select
+                    value={formData.horseId}
+                    onChange={(e) => {
+                      const horse = horses.find((h: any) => h.id === e.target.value);
+                      setFormData({ ...formData, horseId: e.target.value, horseName: horse ? horse.name : '' });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                  />
+                  >
+                    <option value="">Brak</option>
+                    {horses.map((horse: any) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

@@ -1,14 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import Button from '@/components/ui/Button';
 import Image from 'next/image';
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/welcome');
+  };
 
   const navLinks = [
     { href: '/', label: 'Strona główna' },
@@ -57,7 +63,7 @@ export default function Navbar() {
                     Panel
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" onClick={logout}>
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
                   Wyloguj
                 </Button>
               </>

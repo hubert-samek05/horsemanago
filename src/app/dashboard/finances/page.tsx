@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useMemo, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -103,6 +103,8 @@ export default function FinancesPage() {
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [financialSummary, setFinancialSummary] = useState<any>(null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -112,15 +114,23 @@ export default function FinancesPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const [summaryRes, paymentsRes] = await Promise.all([
+        const [summaryRes, paymentsRes, invoicesRes, clientsRes, horsesRes] = await Promise.all([
           api.get(`/finances/summary?stableId=${activeStableId}`),
           api.get(`/finances/payments?stableId=${activeStableId}`),
+          api.get(`/finances/invoices?stableId=${activeStableId}`),
+          api.get(`/clients?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`)
         ]);
         setFinancialSummary(summaryRes.data);
         setTransactions(paymentsRes.data || []);
+        setInvoices(invoicesRes.data || []);
+        setClients(clientsRes.data || []);
+        setHorses(horsesRes.data || []);
       } catch (error) {
-        console.error('Load finances error:', error);
+        console.error('Load data error:', error);
         setTransactions([]);
+        setClients([]);
+        setHorses([]);
       } finally {
         setLoading(false);
       }
@@ -515,17 +525,22 @@ export default function FinancesPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Finanse</h1>
-              <p className="text-marineBlue">Zarządzaj finansami i płatnościami</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Finanse</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Finanse</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj finansami i płatnościami.
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className='bg-white rounded-2xl shadow-lg border border-iceBlue p-4 flex items-start justify-between'>
               <div>
                 <p className='text-sm text-marineBlue mb-1'>Przychody</p>
@@ -914,8 +929,8 @@ export default function FinancesPage() {
 
       {/* Add/Edit Transaction Modal */}
       {showAddTransactionModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md h-full sm:h-auto sm:max-h-[85vh] rounded-none sm:rounded-3xl shadow-2xl overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-serif text-xl font-bold text-deepNavy">
@@ -990,22 +1005,36 @@ export default function FinancesPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Klient</label>
-                  <input
-                    type="text"
-                    value={transactionFormData.clientName}
-                    onChange={(e) => setTransactionFormData({ ...transactionFormData, clientName: e.target.value })}
+                  <select
+                    value={transactionFormData.clientId}
+                    onChange={(e) => {
+                      const client = clients.find((c: any) => c.id === e.target.value);
+                      setTransactionFormData({ ...transactionFormData, clientId: e.target.value, clientName: client ? `${client.user.firstName} ${client.user.lastName}` : '' });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                  />
+                  >
+                    <option value="">Brak</option>
+                    {clients.map((client: any) => (
+                      <option key={client.id} value={client.id}>{client.user.firstName} {client.user.lastName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
-                  <input
-                    type="text"
-                    value={transactionFormData.horseName}
-                    onChange={(e) => setTransactionFormData({ ...transactionFormData, horseName: e.target.value })}
+                  <select
+                    value={transactionFormData.horseId}
+                    onChange={(e) => {
+                      const horse = horses.find((h: any) => h.id === e.target.value);
+                      setTransactionFormData({ ...transactionFormData, horseId: e.target.value, horseName: horse ? horse.name : '' });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                  />
+                  >
+                    <option value="">Brak</option>
+                    {horses.map((horse: any) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1078,8 +1107,8 @@ export default function FinancesPage() {
 
       {/* Add/Edit Invoice Modal */}
       {showAddInvoiceModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md h-full sm:h-auto sm:max-h-[85vh] rounded-none sm:rounded-3xl shadow-2xl overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-serif text-xl font-bold text-deepNavy">
@@ -1107,23 +1136,37 @@ export default function FinancesPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Klient</label>
-                  <input
-                    type="text"
-                    value={invoiceFormData.clientName}
-                    onChange={(e) => setInvoiceFormData({ ...invoiceFormData, clientName: e.target.value })}
+                  <select
+                    value={invoiceFormData.clientId}
+                    onChange={(e) => {
+                      const client = clients.find((c: any) => c.id === e.target.value);
+                      setInvoiceFormData({ ...invoiceFormData, clientId: e.target.value, clientName: client ? `${client.user.firstName} ${client.user.lastName}` : '' });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz klienta</option>
+                    {clients.map((client: any) => (
+                      <option key={client.id} value={client.id}>{client.user.firstName} {client.user.lastName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
-                  <input
-                    type="text"
-                    value={invoiceFormData.horseName}
-                    onChange={(e) => setInvoiceFormData({ ...invoiceFormData, horseName: e.target.value })}
+                  <select
+                    value={invoiceFormData.horseId}
+                    onChange={(e) => {
+                      const horse = horses.find((h: any) => h.id === e.target.value);
+                      setInvoiceFormData({ ...invoiceFormData, horseId: e.target.value, horseName: horse ? horse.name : '' });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                  />
+                  >
+                    <option value="">Brak</option>
+                    {horses.map((horse: any) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

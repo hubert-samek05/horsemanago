@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -87,6 +87,7 @@ export default function HealthPage() {
 
   const [healthRecords, setHealthRecords] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -96,11 +97,19 @@ export default function HealthPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const { data } = await api.get(`/health?stableId=${activeStableId}`);
-        setHealthRecords(data || []);
+        const [recordsRes, vaccinationsRes, horsesRes] = await Promise.all([
+          api.get(`/health/records?stableId=${activeStableId}`),
+          api.get(`/health/vaccinations?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`)
+        ]);
+        setHealthRecords(recordsRes.data || []);
+        setVaccinations(vaccinationsRes.data || []);
+        setHorses(horsesRes.data || []);
       } catch (error) {
-        console.error('Load health records error:', error);
+        console.error('Load data error:', error);
         setHealthRecords([]);
+        setVaccinations([]);
+        setHorses([]);
       } finally {
         setLoading(false);
       }
@@ -674,14 +683,25 @@ export default function HealthPage() {
 
               <form onSubmit={handleSubmitRecord} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa konia</label>
-                  <input
-                    type="text"
-                    value={recordFormData.horseName}
-                    onChange={(e) => setRecordFormData({ ...recordFormData, horseName: e.target.value })}
+                  <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
+                  <select
+                    value={recordFormData.horseId}
+                    onChange={(e) => {
+                      const selectedHorse = horses.find(h => h.id === e.target.value);
+                      setRecordFormData({
+                        ...recordFormData,
+                        horseId: e.target.value,
+                        horseName: selectedHorse?.name || '',
+                      });
+                    }}
                     className="w-full px-4 py-3 bg-arcticBlue/30 border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz konia</option>
+                    {horses.map((horse) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -832,14 +852,25 @@ export default function HealthPage() {
 
               <form onSubmit={handleSubmitVaccination} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa konia</label>
-                  <input
-                    type="text"
-                    value={vaccinationFormData.horseName}
-                    onChange={(e) => setVaccinationFormData({ ...vaccinationFormData, horseName: e.target.value })}
+                  <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
+                  <select
+                    value={vaccinationFormData.horseId}
+                    onChange={(e) => {
+                      const selectedHorse = horses.find(h => h.id === e.target.value);
+                      setVaccinationFormData({
+                        ...vaccinationFormData,
+                        horseId: e.target.value,
+                        horseName: selectedHorse?.name || '',
+                      });
+                    }}
                     className="w-full px-4 py-3 bg-arcticBlue/30 border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz konia</option>
+                    {horses.map((horse) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

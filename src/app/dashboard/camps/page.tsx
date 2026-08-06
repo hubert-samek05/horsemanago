@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -175,8 +175,12 @@ export default function CampsPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const { data } = await api.get(`/camps?stableId=${activeStableId}`);
-        setCamps(data || []);
+        const [campsRes, participantsRes] = await Promise.all([
+          api.get(`/camps?stableId=${activeStableId}`),
+          api.get(`/camps/participants/all?stableId=${activeStableId}`),
+        ]);
+        setCamps(campsRes.data || []);
+        setParticipants(participantsRes.data || []);
       } catch (error) {
         console.error('Load camps error:', error);
         setCamps([]);
@@ -612,17 +616,33 @@ export default function CampsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Obozy jeździeckie</h1>
-              <p className="text-marineBlue">Zarządzaj obozami, turnusami i uczestnikami</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Wydarzenia</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Obozy jeździeckie</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj obozami, turnusami i uczestnikami.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (activeTab === 'camps') handleAddCamp();
+                  else if (activeTab === 'sessions' && selectedCampId) handleAddSession(selectedCampId);
+                  else if (activeTab === 'participants') handleAddParticipant();
+                }}
+                disabled={activeTab === 'sessions' && !selectedCampId}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-5 h-5 text-oceanBlue" />
@@ -711,24 +731,15 @@ export default function CampsPage() {
           {/* Camps Tab */}
           {activeTab === 'camps' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj obozu..."
-                    value={campSearchTerm}
-                    onChange={(e) => setCampSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={handleAddCamp}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj obóz</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj obozu..."
+                  value={campSearchTerm}
+                  onChange={(e) => setCampSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredCamps.map((camp) => (
@@ -774,37 +785,27 @@ export default function CampsPage() {
           {/* Sessions Tab */}
           {activeTab === 'sessions' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex-1 flex flex-col sm:flex-row gap-3 w-full">
-                  <select
-                    value={selectedCampId || ''}
-                    onChange={(e) => setSelectedCampId(e.target.value || null)}
-                    className="px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm bg-white"
-                  >
-                    <option value="">Wszystkie obozy</option>
-                    {camps.map(camp => (
-                      <option key={camp.id} value={camp.id}>{camp.name}</option>
-                    ))}
-                  </select>
-                  <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                    <input
-                      type="text"
-                      placeholder="Szukaj turnusu..."
-                      value={sessionSearchTerm}
-                      onChange={(e) => setSessionSearchTerm(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={() => selectedCampId && handleAddSession(selectedCampId)}
-                  disabled={!selectedCampId}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <select
+                  value={selectedCampId || ''}
+                  onChange={(e) => setSelectedCampId(e.target.value || null)}
+                  className="px-4 py-3.5 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm bg-white"
                 >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj turnus</span>
-                </button>
+                  <option value="">Wszystkie obozy</option>
+                  {camps.map(camp => (
+                    <option key={camp.id} value={camp.id}>{camp.name}</option>
+                  ))}
+                </select>
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Szukaj turnusu..."
+                    value={sessionSearchTerm}
+                    onChange={(e) => setSessionSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredSessions.map((session) => (
@@ -854,24 +855,15 @@ export default function CampsPage() {
           {/* Participants Tab */}
           {activeTab === 'participants' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj uczestnika..."
-                    value={participantSearchTerm}
-                    onChange={(e) => setParticipantSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={handleAddParticipant}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj uczestnika</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj uczestnika..."
+                  value={participantSearchTerm}
+                  onChange={(e) => setParticipantSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredParticipants.map((participant) => {
@@ -930,7 +922,7 @@ export default function CampsPage() {
                   <button onClick={() => { setEditingCamp(selectedCamp); setSelectedCamp(null); setShowAddCampModal(true); }} className="p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors">
                     <Edit2 className="w-5 h-5" />
                   </button>
-                  <button onClick={() => { setCamps(camps.filter(c => c.id !== selectedCamp.id)); setSelectedCamp(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
+                  <button onClick={() => { handleDeleteCamp(selectedCamp.id); setSelectedCamp(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
                     <Trash2 className="w-5 h-5" />
                   </button>
                   <button onClick={() => setSelectedCamp(null)} className="p-2 hover:bg-iceBlue rounded-xl transition-colors">
@@ -1420,7 +1412,7 @@ export default function CampsPage() {
                   <button onClick={() => { setEditingParticipant(selectedParticipant); setSelectedParticipant(null); setShowAddParticipantModal(true); }} className="p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors">
                     <Edit2 className="w-5 h-5" />
                   </button>
-                  <button onClick={() => { setParticipants(participants.filter(p => p.id !== selectedParticipant.id)); setSelectedParticipant(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
+                  <button onClick={() => { handleDeleteParticipant(selectedParticipant.id); setSelectedParticipant(null); }} className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors">
                     <Trash2 className="w-5 h-5" />
                   </button>
                   <button onClick={() => setSelectedParticipant(null)} className="p-2 hover:bg-iceBlue rounded-xl transition-colors">

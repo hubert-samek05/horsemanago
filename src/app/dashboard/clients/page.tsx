@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,7 @@ interface Client {
 
 export default function ClientsPage() {
   const router = useRouter();
-  const { user, isAuthenticated, activeStableId } = useAuthStore();
+  const { user, isAuthenticated, activeStableId, activeRole } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,9 +41,22 @@ export default function ClientsPage() {
     return null;
   }
 
+  const effectiveRole = activeRole || user?.role;
+  const isStableOwner = effectiveRole === 'STABLE_OWNER' || effectiveRole === 'ADMIN';
+  const isManager = effectiveRole === 'MANAGER';
+  const canAddClients = isStableOwner || isManager;
+
   const [showModal, setShowModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [newClientFirstName, setNewClientFirstName] = useState('');
+  const [newClientLastName, setNewClientLastName] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [addClientError, setAddClientError] = useState('');
+  const [addClientLoading, setAddClientLoading] = useState(false);
+  const [editClientLoading, setEditClientLoading] = useState(false);
+  const [editClientError, setEditClientError] = useState('');
 
   useEffect(() => {
     if (!activeStableId) {
@@ -91,6 +104,61 @@ export default function ClientsPage() {
     }
   };
 
+  const resetAddClientForm = () => {
+    setNewClientFirstName('');
+    setNewClientLastName('');
+    setNewClientEmail('');
+    setNewClientPhone('');
+    setAddClientError('');
+  };
+
+  const handleAddClient = async () => {
+    setAddClientError('');
+    if (!newClientFirstName.trim() || !newClientEmail.trim()) {
+      setAddClientError('Imię i email są wymagane');
+      return;
+    }
+    setAddClientLoading(true);
+    try {
+      const { data } = await api.post('/clients', {
+        stableId: activeStableId,
+        firstName: newClientFirstName.trim(),
+        lastName: newClientLastName.trim(),
+        email: newClientEmail.trim(),
+        phone: newClientPhone.trim() || undefined,
+      });
+      setClients([data, ...clients]);
+      setShowModal(false);
+      resetAddClientForm();
+    } catch (error: any) {
+      console.error('Add client error:', error);
+      setAddClientError(error?.response?.data?.error || 'Nie udało się dodać klienta');
+    } finally {
+      setAddClientLoading(false);
+    }
+  };
+
+  const handleEditClient = async () => {
+    if (!selectedClient) return;
+    setEditClientError('');
+    setEditClientLoading(true);
+    try {
+      const { data } = await api.put(`/clients/${selectedClient.id}`, {
+        firstName: selectedClient.user.firstName,
+        lastName: selectedClient.user.lastName,
+        email: selectedClient.user.email,
+        phone: selectedClient.user.phone,
+      });
+      setClients(clients.map(c => c.id === selectedClient.id ? data : c));
+      setSelectedClient(data);
+    } catch (error: any) {
+      console.error('Edit client error:', error);
+      setEditClientError(error?.response?.data?.error || 'Nie udało się zaktualizować klienta');
+    } finally {
+      setEditClientLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
@@ -124,19 +192,26 @@ export default function ClientsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-1">Klienci</h1>
-              <p className="text-marineBlue text-sm">Zarządzaj klientami stajni i przeglądaj historię wizyt</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Baza klientów</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Klienci</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj klientami stajni i przeglądaj historię wizyt.
+                </p>
+              </div>
+              {canAddClients && (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+                >
+                  <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-5 py-3 rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Dodaj klienta</span>
-            </button>
           </div>
 
           <div className="relative mb-6">
@@ -208,7 +283,7 @@ export default function ClientsPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(client.id, client.status === 'accepted' ? 'inactive' : 'accepted'); }}
+                            onClick={(e) => { e.stopPropagation(); setSelectedClient(client); }}
                             className="p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors"
                           >
                             <Edit className="w-4 h-4" />
@@ -281,6 +356,186 @@ export default function ClientsPage() {
       </div>
 
       <MobileNav user={user} />
+
+      {/* Client Detail Modal */}
+      {selectedClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-serif text-xl font-bold text-deepNavy">Edytuj klienta</h2>
+              <button
+                onClick={() => { setSelectedClient(null); setEditClientError(''); }}
+                className="p-2 hover:bg-arcticBlue rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5 text-marineBlue" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-deepNavy mb-1.5">Imię *</label>
+                  <input
+                    type="text"
+                    value={selectedClient.user.firstName}
+                    onChange={(e) => setSelectedClient({...selectedClient, user: {...selectedClient.user, firstName: e.target.value}})}
+                    className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-deepNavy mb-1.5">Nazwisko</label>
+                  <input
+                    type="text"
+                    value={selectedClient.user.lastName}
+                    onChange={(e) => setSelectedClient({...selectedClient, user: {...selectedClient.user, lastName: e.target.value}})}
+                    className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-deepNavy mb-1.5">Email *</label>
+                <input
+                  type="email"
+                  value={selectedClient.user.email}
+                  onChange={(e) => setSelectedClient({...selectedClient, user: {...selectedClient.user, email: e.target.value}})}
+                  className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-deepNavy mb-1.5">Telefon</label>
+                <input
+                  type="tel"
+                  value={selectedClient.user.phone || ''}
+                  onChange={(e) => setSelectedClient({...selectedClient, user: {...selectedClient.user, phone: e.target.value}})}
+                  className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-deepNavy mb-1.5">Status</label>
+                <select
+                  value={selectedClient.status}
+                  onChange={(e) => setSelectedClient({...selectedClient, status: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                >
+                  <option value="accepted">Aktywny</option>
+                  <option value="pending">Oczekujący</option>
+                  <option value="inactive">Nieaktywny</option>
+                </select>
+              </div>
+
+              {editClientError && (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl p-3">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{editClientError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleEditClient}
+                  disabled={editClientLoading}
+                  className="flex-1 py-3 bg-gradient-to-r from-oceanBlue to-marineBlue text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-60"
+                >
+                  {editClientLoading ? 'Zapisywanie...' : 'Zapisz'}
+                </button>
+                <button
+                  onClick={() => handleDeleteClient(selectedClient.id)}
+                  className="px-4 py-3 bg-red-500 text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Client Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-serif text-xl font-bold text-deepNavy">Dodaj klienta</h2>
+              <button
+                onClick={() => { setShowModal(false); resetAddClientForm(); }}
+                className="p-2 hover:bg-arcticBlue rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5 text-marineBlue" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-deepNavy mb-1.5">Imię *</label>
+                  <input
+                    type="text"
+                    value={newClientFirstName}
+                    onChange={(e) => setNewClientFirstName(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                    placeholder="Jan"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-deepNavy mb-1.5">Nazwisko</label>
+                  <input
+                    type="text"
+                    value={newClientLastName}
+                    onChange={(e) => setNewClientLastName(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                    placeholder="Kowalski"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-deepNavy mb-1.5">Email *</label>
+                <input
+                  type="email"
+                  value={newClientEmail}
+                  onChange={(e) => setNewClientEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                  placeholder="jan.kowalski@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-deepNavy mb-1.5">Telefon</label>
+                <input
+                  type="tel"
+                  value={newClientPhone}
+                  onChange={(e) => setNewClientPhone(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-arcticBlue/30 border border-iceBlue rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy"
+                  placeholder="+48 600 000 000"
+                />
+              </div>
+
+              <p className="text-xs text-marineBlue/80 bg-iceBlue/50 rounded-xl p-3">
+                Jeśli klient nie ma jeszcze konta w HORSEmanago, otrzyma email z zaproszeniem do jego utworzenia.
+                Terminy i wizyty będą przypisane do niego już teraz i zobaczy je po zalogowaniu.
+              </p>
+
+              {addClientError && (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl p-3">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{addClientError}</span>
+                </div>
+              )}
+
+              <button
+                onClick={handleAddClient}
+                disabled={addClientLoading}
+                className="w-full py-3 bg-gradient-to-r from-oceanBlue to-marineBlue text-white rounded-xl font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-60"
+              >
+                {addClientLoading ? 'Dodawanie...' : 'Dodaj klienta'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

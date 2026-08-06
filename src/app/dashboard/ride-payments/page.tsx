@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore, usePassStore, Pass } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -47,6 +47,9 @@ export default function RidePaymentsPage() {
   const [markMethod, setMarkMethod] = useState<RidePayment['paymentMethod']>('cash');
   const [markPassId, setMarkPassId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<any[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
+  const [instructors, setInstructors] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     rideId: '',
     clientName: '',
@@ -83,12 +86,22 @@ export default function RidePaymentsPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        // TODO: Fetch real data from API
-        // For now, show empty state
-        setPayments([]);
+        const [paymentsRes, clientsRes, horsesRes, employeesRes] = await Promise.all([
+          api.get(`/ride-payments?stableId=${activeStableId}`),
+          api.get(`/clients?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`),
+          api.get(`/employees?stableId=${activeStableId}`)
+        ]);
+        setPayments(paymentsRes.data || []);
+        setClients(clientsRes.data || []);
+        setHorses(horsesRes.data || []);
+        setInstructors(employeesRes.data || []);
       } catch (error) {
-        console.error('Load payments error:', error);
+        console.error('Load data error:', error);
         setPayments([]);
+        setClients([]);
+        setHorses([]);
+        setInstructors([]);
       } finally {
         setLoading(false);
       }
@@ -176,8 +189,14 @@ export default function RidePaymentsPage() {
     setShowAddModal(true);
   };
 
-  const handleDeletePayment = (id: string) => {
-    setPayments(payments.filter(p => p.id !== id));
+  const handleDeletePayment = async (id: string) => {
+    try {
+      await api.delete(`/ride-payments/${id}`);
+      setPayments(payments.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('Delete payment error:', error);
+      alert('Nie udało się usunąć płatności');
+    }
   };
 
   const handleMarkPaid = (payment: RidePayment) => {
@@ -232,17 +251,24 @@ export default function RidePaymentsPage() {
     ));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingPayment) {
-      setPayments(payments.map(p => p.id === editingPayment.id ? { ...p, ...formData } : p));
-    } else {
-      setPayments([...payments, { id: Date.now().toString(), ...formData }]);
-      if (formData.paid && formData.paymentMethod === 'pass' && formData.passId) {
-        usePassRide(formData.passId);
+    try {
+      if (editingPayment) {
+        const { data } = await api.put(`/ride-payments/${editingPayment.id}`, { ...formData, stableId: activeStableId });
+        setPayments(payments.map(p => p.id === editingPayment.id ? data : p));
+      } else {
+        const { data } = await api.post('/ride-payments', { ...formData, stableId: activeStableId });
+        setPayments([...payments, data]);
+        if (formData.paid && formData.paymentMethod === 'pass' && formData.passId) {
+          await api.put(`/passes/${formData.passId}/use-ride`);
+        }
       }
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Save payment error:', error);
+      alert('Nie udało się zapisać płatności');
     }
-    setShowAddModal(false);
   };
 
   const handleUsePass = (pass: Pass) => {
@@ -316,24 +342,28 @@ export default function RidePaymentsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Płatności za jazdy</h1>
-              <p className="text-marineBlue">Zarządzaj płatnościami za odbyte zajęcia</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Finanse</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Płatności za jazdy</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj płatnościami za odbyte zajęcia.
+                </p>
+              </div>
+              <button
+                onClick={handleAddPayment}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
-            <button
-              onClick={handleAddPayment}
-              className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Dodaj płatność</span>
-            </button>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-5 h-5 text-oceanBlue" />
@@ -381,13 +411,13 @@ export default function RidePaymentsPage() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-2 mb-6">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
               <input
                 type="text"
                 placeholder="Szukaj płatności..."
                 value={paymentSearchTerm}
                 onChange={(e) => setPaymentSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-2 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -395,7 +425,7 @@ export default function RidePaymentsPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                className="px-3 py-3.5 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
               >
                 {statuses.map((status) => (
                   <option key={status.value} value={status.value}>{status.label}</option>
@@ -406,7 +436,7 @@ export default function RidePaymentsPage() {
               <select
                 value={filterPayment}
                 onChange={(e) => setFilterPayment(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                className="px-3 py-3.5 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
               >
                 <option value="all">Wszystkie płatności</option>
                 <option value="paid">Opłacone</option>
@@ -754,14 +784,25 @@ export default function RidePaymentsPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa klienta</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-deepNavy mb-2">Klient</label>
+                  <select
                     value={formData.clientName}
-                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                    onChange={(e) => {
+                      const client = clients.find(c => `${c.user.firstName} ${c.user.lastName}` === e.target.value);
+                      setFormData({
+                        ...formData,
+                        clientName: e.target.value,
+                        clientPhone: client ? client.user.phone || '' : '',
+                      });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz klienta</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={`${client.user.firstName} ${client.user.lastName}`}>{client.user.firstName} {client.user.lastName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -777,24 +818,32 @@ export default function RidePaymentsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.horseName}
                     onChange={(e) => setFormData({ ...formData, horseName: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz konia</option>
+                    {horses.map((horse) => (
+                      <option key={horse.id} value={horse.name}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Instruktor</label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.instructorName}
                     onChange={(e) => setFormData({ ...formData, instructorName: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz instruktora</option>
+                    {instructors.map((instructor) => (
+                      <option key={instructor.id} value={`${instructor.user.firstName} ${instructor.user.lastName}`}>{instructor.user.firstName} {instructor.user.lastName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

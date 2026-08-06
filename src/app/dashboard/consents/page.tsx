@@ -1,13 +1,14 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-import { useState } from 'react';
+export const dynamic = 'force-static';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
 import Image from 'next/image';
 import { Menu, Plus, X, Edit2, Trash2, Search, FileText, Check, AlertCircle, User, Calendar } from 'lucide-react';
+import api from '@/lib/api';
 
 interface Consent {
   id: string;
@@ -36,7 +37,7 @@ interface ClientConsent {
 
 export default function ConsentsPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, activeStableId } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'consents' | 'tracking'>('consents');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -45,6 +46,7 @@ export default function ConsentsPage() {
   const [trackingSearchTerm, setTrackingSearchTerm] = useState('');
   const [selectedConsent, setSelectedConsent] = useState<Consent | null>(null);
   const [selectedClientConsent, setSelectedClientConsent] = useState<ClientConsent | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -63,84 +65,44 @@ export default function ConsentsPage() {
     return null;
   }
 
-  const [consents, setConsents] = useState<Consent[]>([
-    {
-      id: '1',
-      name: 'Zgoda na przetwarzanie danych osobowych',
-      description: 'Zgoda na przetwarzanie danych osobowych zgodnie z RODO',
-      type: 'data_processing',
-      version: '1.0',
-      effectiveDate: '2024-01-01',
-      status: 'active',
-      content: 'Wyrażam zgodę na przetwarzanie moich danych osobowych...',
-      required: true,
-    },
-    {
-      id: '2',
-      name: 'Zgoda na wykorzystanie wizerunku',
-      description: 'Zgoda na wykorzystanie zdjęć i nagrań w celach promocyjnych',
-      type: 'photo',
-      version: '1.0',
-      effectiveDate: '2024-01-01',
-      status: 'active',
-      content: 'Wyrażam zgodę na wykorzystanie mojego wizerunku...',
-      required: false,
-    },
-    {
-      id: '3',
-      name: 'Zgoda na leczenie weterynaryjne',
-      description: 'Zgoda na przeprowadzenie zabiegów weterynaryjnych',
-      type: 'medical',
-      version: '1.0',
-      effectiveDate: '2024-01-01',
-      status: 'active',
-      content: 'Wyrażam zgodę na przeprowadzenie zabiegów weterynaryjnych...',
-      required: true,
-    },
-  ]);
+  const [consents, setConsents] = useState<Consent[]>([]);
+  const [clientConsents, setClientConsents] = useState<ClientConsent[]>([]);
 
-  const [clientConsents, setClientConsents] = useState<ClientConsent[]>([
-    {
-      id: '1',
-      consentId: '1',
-      consentName: 'Zgoda na przetwarzanie danych osobowych',
-      clientId: '1',
-      clientName: 'Anna Kowalska',
-      signedDate: '2024-03-01',
-      status: 'signed',
-      version: '1.0',
-    },
-    {
-      id: '2',
-      consentId: '2',
-      consentName: 'Zgoda na wykorzystanie wizerunku',
-      clientId: '1',
-      clientName: 'Anna Kowalska',
-      signedDate: '2024-03-01',
-      status: 'signed',
-      version: '1.0',
-    },
-    {
-      id: '3',
-      consentId: '1',
-      consentName: 'Zgoda na przetwarzanie danych osobowych',
-      clientId: '2',
-      clientName: 'Piotr Nowak',
-      signedDate: '2024-02-15',
-      status: 'signed',
-      version: '1.0',
-    },
-    {
-      id: '4',
-      consentId: '3',
-      consentName: 'Zgoda na leczenie weterynaryjne',
-      clientId: '2',
-      clientName: 'Piotr Nowak',
-      signedDate: '2024-02-15',
-      status: 'signed',
-      version: '1.0',
-    },
-  ]);
+  useEffect(() => {
+    if (!activeStableId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const loadData = async () => {
+      try {
+        const [consentsRes, clientConsentsRes] = await Promise.all([
+          api.get(`/consents?stableId=${activeStableId}`),
+          api.get(`/consents/client-consents?stableId=${activeStableId}`)
+        ]);
+        setConsents(consentsRes.data || []);
+        setClientConsents(clientConsentsRes.data || []);
+      } catch (error) {
+        console.error('Load consents error:', error);
+        setConsents([]);
+        setClientConsents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [activeStableId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
+        <div className="lg:ml-72 min-h-screen flex items-center justify-center">
+          <p className="text-marineBlue">Ładowanie zgód...</p>
+        </div>
+      </div>
+    );
+  }
 
   const consentTypes = [
     { value: 'data_processing', label: 'Przetwarzanie danych' },
@@ -194,18 +156,31 @@ export default function ConsentsPage() {
     setShowAddModal(true);
   };
 
-  const handleDelete = (id: string) => {
-    setConsents(consents.filter(c => c.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/consents/${id}`);
+      setConsents(consents.filter(c => c.id !== id));
+    } catch (error) {
+      console.error('Delete consent error:', error);
+      alert('Nie udało się usunąć zgody');
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingConsent) {
-      setConsents(consents.map(c => c.id === editingConsent.id ? { ...c, ...formData } : c));
-    } else {
-      setConsents([...consents, { id: Date.now().toString(), ...formData }]);
+    try {
+      if (editingConsent) {
+        const { data } = await api.put(`/consents/${editingConsent.id}`, formData);
+        setConsents(consents.map(c => c.id === editingConsent.id ? data : c));
+      } else {
+        const { data } = await api.post('/consents', { ...formData, stableId: activeStableId });
+        setConsents([...consents, data]);
+      }
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Save consent error:', error);
+      alert('Nie udało się zapisać zgody');
     }
-    setShowAddModal(false);
   };
 
   const getConsentStats = () => {
@@ -259,17 +234,28 @@ export default function ConsentsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Zgody i regulaminy</h1>
-              <p className="text-marineBlue">Zarządzaj zgodami i śledź zgodność</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Prawne</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Zgody i regulaminy</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj zgodami i śledź zgodność.
+                </p>
+              </div>
+              <button
+                onClick={handleAdd}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-5 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-5 h-5 text-oceanBlue" />
@@ -334,24 +320,15 @@ export default function ConsentsPage() {
           {/* Consents Tab */}
           {activeTab === 'consents' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj zgody..."
-                    value={consentSearchTerm}
-                    onChange={(e) => setConsentSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={handleAdd}
-                  className="w-full sm:w-auto bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj zgodę</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj zgody..."
+                  value={consentSearchTerm}
+                  onChange={(e) => setConsentSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredConsents.map((consent) => (
@@ -421,14 +398,14 @@ export default function ConsentsPage() {
           {/* Tracking Tab */}
           {activeTab === 'tracking' && (
             <div>
-              <div className="mb-4 relative w-full sm:w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Szukaj klienta lub zgody..."
                   value={trackingSearchTerm}
                   onChange={(e) => setTrackingSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
                 />
               </div>
               <div className="bg-white rounded-2xl shadow-lg border border-iceBlue overflow-hidden">
@@ -486,7 +463,7 @@ export default function ConsentsPage() {
                   <button onClick={() => { setEditingConsent(selectedConsent); setSelectedConsent(null); setShowAddModal(true); }} className='p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors'>
                     <Edit2 className='w-5 h-5' />
                   </button>
-                  <button onClick={() => { setConsents(consents.filter(c => c.id !== selectedConsent.id)); setSelectedConsent(null); }} className='p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors'>
+                  <button onClick={() => { handleDelete(selectedConsent.id); setSelectedConsent(null); }} className='p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors'>
                     <Trash2 className='w-5 h-5' />
                   </button>
                   <button onClick={() => setSelectedConsent(null)} className='p-2 hover:bg-iceBlue rounded-xl transition-colors'>

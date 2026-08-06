@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -139,6 +139,7 @@ export default function CompetitionsPage() {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
 
   const [clients, setClients] = useState<Client[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -148,11 +149,19 @@ export default function CompetitionsPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const { data } = await api.get(`/competitions?stableId=${activeStableId}`);
-        setCompetitions(data || []);
+        const [compRes, clientRes, horseRes] = await Promise.all([
+          api.get(`/competitions?stableId=${activeStableId}`),
+          api.get(`/clients?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`)
+        ]);
+        setCompetitions(compRes.data || []);
+        setClients(clientRes.data?.map((c: any) => ({ id: c.id, name: `${c.user.firstName} ${c.user.lastName}`, email: c.user.email, phone: c.user.phone || '' })) || []);
+        setHorses(horseRes.data || []);
       } catch (error) {
-        console.error('Load competitions error:', error);
+        console.error('Load data error:', error);
         setCompetitions([]);
+        setClients([]);
+        setHorses([]);
       } finally {
         setLoading(false);
       }
@@ -315,13 +324,14 @@ export default function CompetitionsPage() {
         clientPhone = client.phone;
         clientId = client.id;
       } else {
-        const newClient: Client = {
-          id: Date.now().toString(),
-          name: participantForm.name,
+        const { data: newClient } = await api.post('/clients', {
+          stableId: activeStableId,
+          firstName: participantForm.name.split(' ')[0],
+          lastName: participantForm.name.split(' ').slice(1).join(' '),
           email: participantForm.email,
           phone: participantForm.phone,
-        };
-        setClients([...clients, newClient]);
+        });
+        setClients([...clients, { id: newClient.id, name: participantForm.name, email: participantForm.email, phone: participantForm.phone }]);
         clientId = newClient.id;
       }
 
@@ -337,7 +347,7 @@ export default function CompetitionsPage() {
         paymentDate: participantForm.paid ? new Date().toISOString().split('T')[0] : undefined,
       };
 
-      const { data } = await api.post(`/competitions/${selectedCompetition.id}/participants`, { ...newParticipant, stableId: activeStableId });
+      const { data } = await api.post(`/competitions/${selectedCompetition.id}/participants`, { ...newParticipant, stableId: activeStableId, clientId });
       setCompetitions(competitions.map(c =>
         c.id === selectedCompetition.id
           ? { ...c, participants: [...c.participants, data], currentParticipants: c.currentParticipants + 1 }
@@ -347,6 +357,21 @@ export default function CompetitionsPage() {
     } catch (error) {
       console.error('Add participant error:', error);
       alert('Nie udało się dodać uczestnika');
+    }
+  };
+
+  const handleDeleteParticipant = async (participantId: string) => {
+    if (!selectedCompetition) return;
+    try {
+      await api.delete(`/competitions/${selectedCompetition.id}/participants/${participantId}`);
+      setCompetitions(competitions.map(c =>
+        c.id === selectedCompetition.id
+          ? { ...c, participants: c.participants.filter(p => p.id !== participantId), currentParticipants: c.currentParticipants - 1 }
+          : c
+      ));
+    } catch (error) {
+      console.error('Delete participant error:', error);
+      alert('Nie udało się usunąć uczestnika');
     }
   };
 
@@ -427,24 +452,28 @@ export default function CompetitionsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Zawody</h1>
-              <p className="text-marineBlue">Zarządzaj zawodami, uczestnikami i wynikami</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Wydarzenia</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Zawody</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj zawodami, uczestnikami i wynikami.
+                </p>
+              </div>
+              <button
+                onClick={handleAddCompetition}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
-            <button
-              onClick={handleAddCompetition}
-              className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Dodaj zawody</span>
-            </button>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Trophy className="w-5 h-5 text-oceanBlue" />
@@ -537,13 +566,13 @@ export default function CompetitionsPage() {
           {activeTab === 'competitions' && (
             <div className="flex flex-col sm:flex-row gap-2 mb-6">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Szukaj zawodów..."
                   value={competitionSearchTerm}
                   onChange={(e) => setCompetitionSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-2 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -551,7 +580,7 @@ export default function CompetitionsPage() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                  className="px-3 py-3.5 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                 >
                   <option value="all">Wszystkie statusy</option>
                   <option value="upcoming">Nadchodzące</option>
@@ -564,7 +593,7 @@ export default function CompetitionsPage() {
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                  className="px-3 py-3.5 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                 >
                   <option value="all">Wszystkie typy</option>
                   {types.map((type) => (
@@ -667,13 +696,13 @@ export default function CompetitionsPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
                 <h2 className="font-serif text-xl font-bold text-deepNavy">Wszyscy uczestnicy</h2>
                 <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Szukaj uczestnika..."
                     value={participantSearchTerm}
                     onChange={(e) => setParticipantSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-2 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
                   />
                 </div>
               </div>
@@ -735,13 +764,13 @@ export default function CompetitionsPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
                 <h2 className="font-serif text-xl font-bold text-deepNavy">Wyniki zawodów</h2>
                 <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Szukaj wyniku..."
                     value={resultSearchTerm}
                     onChange={(e) => setResultSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-2 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
                   />
                 </div>
               </div>
@@ -801,13 +830,13 @@ export default function CompetitionsPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
                 <h2 className="font-serif text-xl font-bold text-deepNavy">Harmonogram zawodów</h2>
                 <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Szukaj w harmonogramie..."
                     value={scheduleSearchTerm}
                     onChange={(e) => setScheduleSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-2 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
                   />
                 </div>
               </div>
@@ -1239,6 +1268,7 @@ export default function CompetitionsPage() {
                       <th className="text-left py-3 px-4 text-sm font-medium text-marineBlue">Status</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-marineBlue">Opłacone</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-marineBlue">Data płatności</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-marineBlue">Akcje</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1265,6 +1295,14 @@ export default function CompetitionsPage() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm text-deepNavy">{participant.paymentDate || '-'}</td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => handleDeleteParticipant(participant.id)}
+                            className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1442,7 +1480,17 @@ export default function CompetitionsPage() {
 
                 <div>
                   <label className='block text-sm font-medium text-deepNavy mb-2'>Koń</label>
-                  <input type='text' value={participantForm.horseName} onChange={(e) => setParticipantForm({ ...participantForm, horseName: e.target.value })} className='w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm' required />
+                  <select
+                    value={participantForm.horseName}
+                    onChange={(e) => setParticipantForm({ ...participantForm, horseName: e.target.value })}
+                    className='w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm'
+                    required
+                  >
+                    <option value=''>Wybierz konia</option>
+                    {horses.map((horse: any) => (
+                      <option key={horse.id} value={horse.name}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

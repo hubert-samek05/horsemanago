@@ -3,7 +3,7 @@ import { Inter, Playfair_Display, Manrope } from 'next/font/google'
 import './globals.css'
 import StoreHydration from '@/components/StoreHydration'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })

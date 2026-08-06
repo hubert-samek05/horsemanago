@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -88,6 +88,7 @@ export default function VeterinariansPage() {
 
   const [veterinarians, setVeterinarians] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -97,11 +98,19 @@ export default function VeterinariansPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const { data } = await api.get(`/veterinarians?stableId=${activeStableId}`);
-        setVeterinarians(data || []);
+        const [vetsRes, appointmentsRes, horsesRes] = await Promise.all([
+          api.get(`/veterinarians?stableId=${activeStableId}`),
+          api.get(`/veterinarians/appointments/all?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`)
+        ]);
+        setVeterinarians(vetsRes.data || []);
+        setAppointments(appointmentsRes.data || []);
+        setHorses(horsesRes.data || []);
       } catch (error) {
-        console.error('Load veterinarians error:', error);
+        console.error('Load data error:', error);
         setVeterinarians([]);
+        setAppointments([]);
+        setHorses([]);
       } finally {
         setLoading(false);
       }
@@ -310,17 +319,31 @@ export default function VeterinariansPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Weterynarze</h1>
-              <p className="text-marineBlue">Zarządzaj weterynarzami i wizytami</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Zdrowie</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Weterynarze</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj weterynarzami i wizytami weterynaryjnymi.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (activeTab === 'veterinarians') handleAddVet();
+                  else if (activeTab === 'appointments') handleAddAppointment();
+                }}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <User className="w-5 h-5 text-oceanBlue" />
@@ -378,24 +401,15 @@ export default function VeterinariansPage() {
           {/* Veterinarians Tab */}
           {activeTab === 'veterinarians' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj weterynarza..."
-                    value={vetSearchTerm}
-                    onChange={(e) => setVetSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={handleAddVet}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj weterynarza</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj weterynarza..."
+                  value={vetSearchTerm}
+                  onChange={(e) => setVetSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredVeterinarians.map((vet) => (
@@ -442,24 +456,15 @@ export default function VeterinariansPage() {
           {/* Appointments Tab */}
           {activeTab === 'appointments' && (
             <div>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj wizyty..."
-                    value={appointmentSearchTerm}
-                    onChange={(e) => setAppointmentSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={handleAddAppointment}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj wizytę</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj wizyty..."
+                  value={appointmentSearchTerm}
+                  onChange={(e) => setAppointmentSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredAppointments.map((appointment) => {
@@ -791,14 +796,25 @@ export default function VeterinariansPage() {
 
               <form onSubmit={handleSubmitAppointment} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa konia</label>
-                  <input
-                    type="text"
-                    value={appointmentFormData.horseName}
-                    onChange={(e) => setAppointmentFormData({ ...appointmentFormData, horseName: e.target.value })}
+                  <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
+                  <select
+                    value={appointmentFormData.horseId}
+                    onChange={(e) => {
+                      const horse = horses.find(h => h.id === e.target.value);
+                      setAppointmentFormData({
+                        ...appointmentFormData,
+                        horseId: e.target.value,
+                        horseName: horse ? horse.name : '',
+                      });
+                    }}
                     className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz konia</option>
+                    {horses.map((horse) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

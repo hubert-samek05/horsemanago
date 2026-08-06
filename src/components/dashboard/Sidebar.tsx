@@ -1,17 +1,20 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { canAccess, normalizeRole, type Role } from '@/lib/permissions';
-import { 
-  Home, 
-  Calendar, 
-  Users, 
-  Dog, 
-  DollarSign, 
-  Settings, 
+import { useAuthStore } from '@/lib/store';
+import {
+  Home,
+  Calendar,
+  Users,
+  Dog,
+  DollarSign,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -47,8 +50,16 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout, activeRole } = useAuthStore();
   const [horsesExpanded, setHorsesExpanded] = useState(false);
-  const role = normalizeRole(user?.role);
+  const role = normalizeRole(activeRole || user?.role);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/welcome');
+    onClose();
+  };
 
   const allMenuItems: ({
     id: string;
@@ -221,11 +232,7 @@ export default function Sidebar({ isOpen, onClose, user }: SidebarProps) {
               <span className="font-medium">Ustawienia</span>
             </Link>
             <button
-              onClick={() => {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/login';
-              }}
+              onClick={handleLogout}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all w-full"
             >
               <LogOut className="w-5 h-5" />

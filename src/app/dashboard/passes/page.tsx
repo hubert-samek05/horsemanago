@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore, usePassStore, Pass } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -22,12 +22,13 @@ interface PassTypeConfig {
 
 export default function PassesPage() {
   const router = useRouter();
-  const { user, isAuthenticated, activeStableId } = useAuthStore();
+  const { user, isAuthenticated, activeStableId, activeRole } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'passes' | 'types' | 'reports'>('passes');
 
-  const isStableOwner = user?.role === 'STABLE_OWNER' || user?.role === 'ADMIN';
-  const isEmployee = user?.role === 'INSTRUCTOR' || user?.role === 'STABLE_WORKER';
+  const effectiveRole = activeRole || user?.role;
+  const isStableOwner = effectiveRole === 'STABLE_OWNER' || effectiveRole === 'ADMIN';
+  const isEmployee = effectiveRole === 'INSTRUCTOR' || effectiveRole === 'STABLE_WORKER';
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPass, setEditingPass] = useState<Pass | null>(null);
   const [selectedPass, setSelectedPass] = useState<Pass | null>(null);
@@ -62,6 +63,7 @@ export default function PassesPage() {
     notes: '',
   });
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<any[]>([]);
 
   if (!isAuthenticated()) {
     router.push('/login');
@@ -79,15 +81,19 @@ export default function PassesPage() {
     setLoading(true);
     const loadData = async () => {
       try {
-        const { data } = await api.get(`/passes?stableId=${activeStableId}`);
-        setPasses(data || []);
-        // TODO: Fetch pass types from API
-        // For now, pass types will be empty and can be created by stable owners
-        setPassTypes([]);
+        const [passesRes, passTypesRes, clientsRes] = await Promise.all([
+          api.get(`/passes?stableId=${activeStableId}`),
+          api.get(`/passes/types?stableId=${activeStableId}`),
+          api.get(`/clients?stableId=${activeStableId}`)
+        ]);
+        setPasses(passesRes.data || []);
+        setPassTypes(passTypesRes.data || []);
+        setClients(clientsRes.data || []);
       } catch (error) {
-        console.error('Load passes error:', error);
+        console.error('Load data error:', error);
         setPasses([]);
         setPassTypes([]);
+        setClients([]);
       } finally {
         setLoading(false);
       }
@@ -196,18 +202,31 @@ export default function PassesPage() {
     setShowTypeModal(true);
   };
 
-  const handleDeletePassType = (id: string) => {
-    setPassTypes(passTypes.filter(t => t.id !== id));
+  const handleDeletePassType = async (id: string) => {
+    try {
+      await api.delete(`/passes/types/${id}`);
+      setPassTypes(passTypes.filter(t => t.id !== id));
+    } catch (error) {
+      console.error('Delete pass type error:', error);
+      alert('Nie udało się usunąć typu karnetu');
+    }
   };
 
-  const handleTypeSubmit = (e: React.FormEvent) => {
+  const handleTypeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingPassType) {
-      setPassTypes(passTypes.map(t => t.id === editingPassType.id ? { ...editingPassType, ...typeForm } : t));
-    } else {
-      setPassTypes([...passTypes, { id: Date.now().toString(), ...typeForm }]);
+    try {
+      if (editingPassType) {
+        const { data } = await api.put(`/passes/types/${editingPassType.id}`, { ...typeForm, stableId: activeStableId });
+        setPassTypes(passTypes.map(t => t.id === editingPassType.id ? data : t));
+      } else {
+        const { data } = await api.post('/passes/types', { ...typeForm, stableId: activeStableId });
+        setPassTypes([...passTypes, data]);
+      }
+      setShowTypeModal(false);
+    } catch (error) {
+      console.error('Save pass type error:', error);
+      alert('Nie udało się zapisać typu karnetu');
     }
-    setShowTypeModal(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -298,24 +317,28 @@ export default function PassesPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Karnety</h1>
-              <p className="text-marineBlue">Zarządzaj karnetami i pakietami przejazdów</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Sprzedaż</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Karnety</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj karnetami i pakietami przejazdów.
+                </p>
+              </div>
+              <button
+                onClick={handleAddPass}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
-            <button
-              onClick={handleAddPass}
-              className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Dodaj karnet</span>
-            </button>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Ticket className="w-5 h-5 text-oceanBlue" />
@@ -400,15 +423,15 @@ export default function PassesPage() {
 
           {activeTab === 'passes' && (
             <div>
-              <div className="flex flex-col sm:flex-row gap-2 mb-4">
+              <div className="flex flex-col sm:flex-row gap-2 mb-6">
                 <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Szukaj karnetu lub klienta..."
                     value={passSearchTerm}
                     onChange={(e) => setPassSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-2 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -416,7 +439,7 @@ export default function PassesPage() {
                   <select
                     value={passStatusFilter}
                     onChange={(e) => setPassStatusFilter(e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm bg-transparent"
+                    className="px-3 py-3.5 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm bg-transparent"
                   >
                     <option value="all">Wszystkie statusy</option>
                     <option value="active">Aktywne</option>
@@ -428,7 +451,7 @@ export default function PassesPage() {
                   <select
                     value={passTypeFilter}
                     onChange={(e) => setPassTypeFilter(e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm bg-transparent"
+                    className="px-3 py-3.5 rounded-lg border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm bg-transparent"
                   >
                     <option value="all">Wszystkie typy</option>
                     {passTypes.map(t => (
@@ -735,25 +758,26 @@ export default function PassesPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-deepNavy mb-2">Nazwa klienta</label>
-                  <input
-                    type="text"
-                    value={formData.clientName}
-                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                  <label className="block text-sm font-medium text-deepNavy mb-2">Klient</label>
+                  <select
+                    value={formData.clientId}
+                    onChange={(e) => {
+                      const client = clients.find(c => c.id === e.target.value);
+                      setFormData({
+                        ...formData,
+                        clientId: e.target.value,
+                        clientName: client ? `${client.user.firstName} ${client.user.lastName}` : '',
+                        clientPhone: client ? client.user.phone || '' : '',
+                      });
+                    }}
                     className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-deepNavy mb-2">Telefon klienta</label>
-                  <input
-                    type="tel"
-                    value={formData.clientPhone}
-                    onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                    className="w-full max-w-full px-3 sm:px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                    required
-                  />
+                  >
+                    <option value="">Wybierz klienta</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>{client.user.firstName} {client.user.lastName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

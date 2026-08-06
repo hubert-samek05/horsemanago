@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -108,6 +108,7 @@ export default function ChecklistsPage() {
   const [dutySchedule, setDutySchedule] = useState<DutyAssignment[]>([]);
 
   const [instructors, setInstructors] = useState<string[]>([]);
+  const [stableHorses, setStableHorses] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (!activeStableId) {
@@ -128,6 +129,10 @@ export default function ChecklistsPage() {
         const employeesRes = await api.get(`/employees?stableId=${activeStableId}`);
         const employees = employeesRes.data || [];
         setInstructors(employees.map((emp: any) => emp.name));
+
+        // Load real horses of this stable (no fake/placeholder horses)
+        const horsesRes = await api.get(`/horses?stableId=${activeStableId}&status=ACTIVE`);
+        setStableHorses((horsesRes.data || []).map((h: any) => ({ id: h.id, name: h.name })));
       } catch (error) {
         console.error('Load checklists error:', error);
         setChecklists([]);
@@ -481,17 +486,28 @@ export default function ChecklistsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Listy kontrolne</h1>
-              <p className="text-marineBlue">Zarządzaj listami zadań, szablonami i zadaniami cyklicznymi</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Operacje</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Listy kontrolne</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj listami zadań, szablonami i zadaniami cyklicznymi.
+                </p>
+              </div>
+              <button
+                onClick={handleAdd}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
           </div>
 
           {/* Stats - hidden on mobile */}
-          <div className="hidden lg:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+          <div className="hidden md:grid md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
             <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-4">
               <div className="flex items-center gap-2 mb-2">
                 <CheckSquare className="w-5 h-5 text-oceanBlue" />
@@ -605,25 +621,16 @@ export default function ChecklistsPage() {
           )}
 
           {activeTab !== 'reports' && (
-            <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="relative w-full sm:w-96">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
+            <div className="relative mb-6">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
               <input
                 type="text"
                 placeholder={activeTab === 'checklists' ? 'Szukaj listy...' : 'Szukaj szablonu...'}
                 value={activeTab === 'checklists' ? checklistSearchTerm : templateSearchTerm}
                 onChange={(e) => activeTab === 'checklists' ? setChecklistSearchTerm(e.target.value) : setTemplateSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
+                className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
               />
             </div>
-            <button
-              onClick={handleAdd}
-              className="w-full sm:w-auto bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Nowa lista</span>
-            </button>
-          </div>
           )}
 
           {/* Checklists Tab */}
@@ -1019,7 +1026,7 @@ export default function ChecklistsPage() {
                   <button onClick={() => { setEditingChecklist(selectedChecklist); setSelectedChecklist(null); setShowAddModal(true); }} className='p-2 text-oceanBlue hover:bg-oceanBlue/10 rounded-xl transition-colors'>
                     <Edit2 className='w-5 h-5' />
                   </button>
-                  <button onClick={() => { setChecklists(checklists.filter(c => c.id !== selectedChecklist.id)); setSelectedChecklist(null); }} className='p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors'>
+                  <button onClick={() => { handleDelete(selectedChecklist.id); setSelectedChecklist(null); }} className='p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors'>
                     <Trash2 className='w-5 h-5' />
                   </button>
                   <button onClick={() => setSelectedChecklist(null)} className='p-2 hover:bg-iceBlue rounded-xl transition-colors'>
@@ -1298,9 +1305,9 @@ export default function ChecklistsPage() {
                       className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     >
                       <option value="">Wybierz konia</option>
-                      <option value="horse1">Błyskawica</option>
-                      <option value="horse2">Gwiazda</option>
-                      <option value="horse3">Burza</option>
+                      {stableHorses.map((h) => (
+                        <option key={h.id} value={h.id}>{h.name}</option>
+                      ))}
                     </select>
                   </div>
                 )}

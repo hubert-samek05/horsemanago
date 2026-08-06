@@ -1,7 +1,7 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-import { useState, useEffect } from 'react';
+export const dynamic = 'force-static';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
@@ -55,9 +55,111 @@ interface Role {
   color: string;
 }
 
+const colors = [
+  { value: 'bg-oceanBlue', label: 'Ocean Blue' },
+  { value: 'bg-marineBlue', label: 'Marine Blue' },
+  { value: 'bg-deepNavy', label: 'Deep Navy' },
+  { value: 'bg-arcticBlue', label: 'Arctic Blue' },
+  { value: 'bg-red-500', label: 'Czerwony' },
+  { value: 'bg-green-500', label: 'Zielony' },
+  { value: 'bg-yellow-500', label: 'Żółty' },
+  { value: 'bg-orange-500', label: 'Pomarańczowy' },
+  { value: 'bg-purple-500', label: 'Fioletowy' },
+  { value: 'bg-pink-500', label: 'Różowy' },
+  { value: 'bg-gray-500', label: 'Szary' },
+  { value: 'bg-teal-500', label: 'Turkusowy' },
+  { value: 'bg-indigo-500', label: 'Indygo' },
+];
+
+const initialRoles: Role[] = [
+  {
+    id: 'owner',
+    name: 'owner',
+    label: 'Właściciel',
+    description: 'Pełna kontrola nad stajnią',
+    defaultPermissions: {
+      manageCalendar: true,
+      manageHorses: true,
+      manageClients: true,
+      manageEmployees: true,
+      manageFinances: true,
+      viewAllData: true,
+    },
+    color: 'bg-deepNavy',
+  },
+  {
+    id: 'manager',
+    name: 'manager',
+    label: 'Menadżer',
+    description: 'Zarządzanie operacyjne stajni',
+    defaultPermissions: {
+      manageCalendar: true,
+      manageHorses: true,
+      manageClients: true,
+      manageEmployees: true,
+      manageFinances: true,
+      viewAllData: true,
+    },
+    color: 'bg-marineBlue',
+  },
+  {
+    id: 'instructor',
+    name: 'instructor',
+    label: 'Instruktor',
+    description: 'Prowadzi lekcje jazdy konnej',
+    defaultPermissions: {
+      manageCalendar: true,
+      manageHorses: true,
+      manageClients: true,
+      manageEmployees: false,
+      manageFinances: false,
+      viewAllData: false,
+    },
+    color: 'bg-oceanBlue',
+  },
+  {
+    id: 'school',
+    name: 'school',
+    label: 'Szkółka',
+    description: 'Zarządzanie szkołą jazdy',
+    defaultPermissions: {
+      manageCalendar: true,
+      manageHorses: true,
+      manageClients: true,
+      manageEmployees: false,
+      manageFinances: false,
+      viewAllData: false,
+    },
+    color: 'bg-arcticBlue',
+  },
+  {
+    id: 'boarder',
+    name: 'boarder',
+    label: 'Pensjonariusze',
+    description: 'Pensjonariusze stajni',
+    defaultPermissions: {
+      manageCalendar: false,
+      manageHorses: false,
+      manageClients: false,
+      manageEmployees: false,
+      manageFinances: false,
+      viewAllData: false,
+    },
+    color: 'bg-green-500',
+  },
+];
+
+const roleLabels: Record<Employee['role'], string> = {
+  owner: 'Właściciel',
+  manager: 'Menadżer',
+  instructor: 'Instruktor',
+  school: 'Szkółka',
+  boarder: 'Pensjonariusze',
+};
+
 export default function EmployeesPage() {
   const router = useRouter();
-  const { user, isAuthenticated, activeStableId } = useAuthStore();
+  const { user, activeStableId } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'employees' | 'roles'>('employees');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -127,156 +229,39 @@ export default function EmployeesPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
-
   const [employees, setEmployees] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!activeStableId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
     const loadData = async () => {
+      if (!activeStableId) return;
       try {
-        const { data } = await api.get(`/employees?stableId=${activeStableId}`);
-        setEmployees(data || []);
+        const [empRes, roleRes] = await Promise.all([
+          api.get(`/employees?stableId=${activeStableId}`),
+          api.get(`/employees/roles?stableId=${activeStableId}`)
+        ]);
+        setEmployees(empRes.data || []);
+        setRoles(roleRes.data || initialRoles);
       } catch (error) {
-        console.error('Load employees error:', error);
+        console.error('Load data error:', error);
         setEmployees([]);
-      } finally {
-        setLoading(false);
+        setRoles(initialRoles);
       }
     };
     loadData();
   }, [activeStableId]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
-        <div className="lg:ml-72 min-h-screen flex items-center justify-center">
-          <p className="text-marineBlue">Ładowanie pracowników...</p>
-        </div>
-      </div>
-    );
-  }
+  const [roles, setRoles] = useState<Role[]>(initialRoles);
 
-  const colors = [
-    { value: 'bg-oceanBlue', label: 'Ocean Blue' },
-    { value: 'bg-marineBlue', label: 'Marine Blue' },
-    { value: 'bg-deepNavy', label: 'Deep Navy' },
-    { value: 'bg-arcticBlue', label: 'Arctic Blue' },
-    { value: 'bg-red-500', label: 'Czerwony' },
-    { value: 'bg-green-500', label: 'Zielony' },
-    { value: 'bg-yellow-500', label: 'Żółty' },
-    { value: 'bg-orange-500', label: 'Pomarańczowy' },
-    { value: 'bg-purple-500', label: 'Fioletowy' },
-    { value: 'bg-pink-500', label: 'Różowy' },
-    { value: 'bg-gray-500', label: 'Szary' },
-    { value: 'bg-teal-500', label: 'Turkusowy' },
-    { value: 'bg-indigo-500', label: 'Indygo' },
-  ];
-
-  const [roles, setRoles] = useState<Role[]>([
-    {
-      id: 'owner',
-      name: 'owner',
-      label: 'Właściciel',
-      description: 'Pełna kontrola nad stajnią',
-      defaultPermissions: {
-        manageCalendar: true,
-        manageHorses: true,
-        manageClients: true,
-        manageEmployees: true,
-        manageFinances: true,
-        viewAllData: true,
-      },
-      color: 'bg-deepNavy',
-    },
-    {
-      id: 'manager',
-      name: 'manager',
-      label: 'Menadżer',
-      description: 'Zarządzanie operacyjne stajni',
-      defaultPermissions: {
-        manageCalendar: true,
-        manageHorses: true,
-        manageClients: true,
-        manageEmployees: true,
-        manageFinances: true,
-        viewAllData: true,
-      },
-      color: 'bg-marineBlue',
-    },
-    {
-      id: 'instructor',
-      name: 'instructor',
-      label: 'Instruktor',
-      description: 'Prowadzi lekcje jazdy konnej',
-      defaultPermissions: {
-        manageCalendar: true,
-        manageHorses: true,
-        manageClients: true,
-        manageEmployees: false,
-        manageFinances: false,
-        viewAllData: false,
-      },
-      color: 'bg-oceanBlue',
-    },
-    {
-      id: 'school',
-      name: 'school',
-      label: 'Szkółka',
-      description: 'Zarządzanie szkołą jazdy',
-      defaultPermissions: {
-        manageCalendar: true,
-        manageHorses: true,
-        manageClients: true,
-        manageEmployees: false,
-        manageFinances: false,
-        viewAllData: false,
-      },
-      color: 'bg-arcticBlue',
-    },
-    {
-      id: 'boarder',
-      name: 'boarder',
-      label: 'Pensjonariusze',
-      description: 'Właściciele koni w pensjonacie',
-      defaultPermissions: {
-        manageCalendar: false,
-        manageHorses: false,
-        manageClients: false,
-        manageEmployees: false,
-        manageFinances: false,
-        viewAllData: false,
-      },
-      color: 'bg-arcticBlue',
-    },
-  ]);
-
-  const roleLabels: Record<Employee['role'], string> = {
-    owner: 'Właściciel',
-    manager: 'Menadżer',
-    instructor: 'Instruktor',
-    school: 'Szkółka',
-    boarder: 'Pensjonariusze',
-  };
-
-  const filteredEmployees = employees.filter(employee =>
+  const filteredEmployees = useMemo(() => employees.filter(employee =>
     employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     employee.phone.includes(searchTerm)
-  );
+  ), [employees, searchTerm]);
 
-  const filteredRoles = roles.filter(role =>
+  const filteredRoles = useMemo(() => roles.filter(role =>
     role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     role.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [roles, searchTerm]);
 
   const handleEditRole = (role: Role) => {
     setRoleFormData({
@@ -291,13 +276,22 @@ export default function EmployeesPage() {
     setShowEditRoleModal(true);
   };
 
-  const handleSaveRole = (e: React.FormEvent) => {
+  const handleSaveRole = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRoles(roles.map(r => 
-      r.id === roleFormData.id ? { ...roleFormData } : r
-    ));
-    setShowEditRoleModal(false);
-    setEditingRole(null);
+    try {
+      if (editingRole) {
+        const { data } = await api.put(`/employees/roles/${roleFormData.id}`, { ...roleFormData, stableId: activeStableId });
+        setRoles(roles.map(r => r.id === roleFormData.id ? data : r));
+      } else {
+        const { data } = await api.post('/employees/roles', { ...roleFormData, stableId: activeStableId });
+        setRoles([...roles, data]);
+      }
+      setShowEditRoleModal(false);
+      setEditingRole(null);
+    } catch (error) {
+      console.error('Save role error:', error);
+      alert('Nie udało się zapisać roli');
+    }
   };
 
   const handleAddEmployee = () => {
@@ -378,6 +372,12 @@ export default function EmployeesPage() {
         stableId: activeStableId,
       });
 
+      await api.put(`/employees/${selectedEmployeeForAccount.id}`, {
+        hasAccount: true,
+        accountUsername: selectedEmployeeForAccount.email.split('@')[0],
+        accountStatus: 'pending',
+      });
+
       setEmployees(employees.map(e =>
         e.id === selectedEmployeeForAccount.id
           ? {
@@ -422,22 +422,29 @@ export default function EmployeesPage() {
     setShowAddModal(true);
   };
 
-  const handleUpdatePermissions = (employeeId: string, permission: keyof Employee['permissions'], value: boolean) => {
-    setEmployees(employees.map(e => 
-      e.id === employeeId 
-        ? { ...e, permissions: { ...e.permissions, [permission]: value } }
-        : e
-    ));
+  const handleUpdatePermissions = async (employeeId: string, permission: keyof Employee['permissions'], value: boolean) => {
+    try {
+      const employee = employees.find((e: any) => e.id === employeeId);
+      if (!employee) return;
+      const updatedPermissions = { ...employee.permissions, [permission]: value };
+      const { data } = await api.put(`/employees/${employeeId}`, { permissions: updatedPermissions });
+      setEmployees(employees.map(e => e.id === employeeId ? data : e));
+    } catch (error) {
+      console.error('Update permissions error:', error);
+      alert('Nie udało się zaktualizować uprawnień');
+    }
   };
 
-  const handleApplyRolePermissions = (employeeId: string, roleId: string) => {
+  const handleApplyRolePermissions = async (employeeId: string, roleId: string) => {
     const role = roles.find(r => r.id === roleId);
     if (role) {
-      setEmployees(employees.map(e => 
-        e.id === employeeId 
-          ? { ...e, permissions: { ...role.defaultPermissions } }
-          : e
-      ));
+      try {
+        const { data } = await api.put(`/employees/${employeeId}`, { permissions: { ...role.defaultPermissions } });
+        setEmployees(employees.map(e => e.id === employeeId ? data : e));
+      } catch (error) {
+        console.error('Apply role permissions error:', error);
+        alert('Nie udało się zastosować uprawnień roli');
+      }
     }
   };
 
@@ -453,6 +460,7 @@ export default function EmployeesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('handleSubmit - activeStableId:', activeStableId);
     const role = roles.find(r => r.id === formData.role);
     const employeeData = {
       ...formData,
@@ -472,6 +480,8 @@ export default function EmployeesPage() {
       hasAccount: false,
       stableId: activeStableId,
     };
+
+    console.log('Submitting employee data:', employeeData);
 
     try {
       if (editingEmployee) {
@@ -510,19 +520,24 @@ export default function EmployeesPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-1">Pracownicy</h1>
-              <p className="text-marineBlue text-sm">Zarządzaj personelem, rolami i kontami</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Zespół</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Pracownicy</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj personelem, rolami i kontami.
+                </p>
+              </div>
+              <button
+                onClick={handleAddEmployee}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
-            <button
-              onClick={handleAddEmployee}
-              className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-5 py-3 rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Dodaj pracownika</span>
-            </button>
           </div>
 
           <div className="relative mb-6">

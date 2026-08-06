@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useState, useMemo, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
@@ -211,26 +211,31 @@ export default function StatisticsPage() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-1">Statystyki</h1>
-              <p className="text-marineBlue">Kompletny przegląd biznesu, finansów i obciążenia koni</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-white rounded-xl border border-iceBlue px-3 py-2 shadow-sm">
-                <Calendar className="w-4 h-4 text-marineBlue" />
-                <select className="bg-transparent text-sm text-deepNavy focus:outline-none">
-                  <option>Ostatnie 6 miesięcy</option>
-                  <option>Bieżący rok</option>
-                  <option>Ostatni miesiąc</option>
-                </select>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Analityka</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Statystyki</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Kompletny przegląd biznesu, finansów i obciążenia koni.
+                </p>
               </div>
-              <button className="px-4 py-2 rounded-xl bg-oceanBlue/10 text-oceanBlue hover:bg-oceanBlue/20 transition-colors text-sm flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Eksport</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20 px-3 py-2 shadow-sm">
+                  <Calendar className="w-4 h-4 text-white/80" />
+                  <select className="bg-transparent text-sm text-white focus:outline-none">
+                    <option className="text-deepNavy">Ostatnie 6 miesięcy</option>
+                    <option className="text-deepNavy">Bieżący rok</option>
+                    <option className="text-deepNavy">Ostatni miesiąc</option>
+                  </select>
+                </div>
+                <button className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 transition-colors text-sm flex items-center gap-2 border border-white/20">
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Eksport</span>
+                </button>
+              </div>
             </div>
           </div>
 

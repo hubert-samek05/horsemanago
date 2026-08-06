@@ -1,15 +1,13 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 
-import { useAuthStore } from '@/lib/store';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
-import Image from 'next/image';
 import { Menu, Plus, Search, X, Edit2, Trash2, Maximize2, FileText, Shield, Stethoscope, Wrench } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuthStore } from '@/lib/store';
 
 interface Horse {
   id: string;
@@ -198,8 +196,6 @@ interface HorseDocuments {
 
 function HorsesContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, isAuthenticated, activeStableId } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'horses' | 'health' | 'feeding' | 'workload' | 'training' | 'documents'>('horses');
   const [showWorkloadModal, setShowWorkloadModal] = useState(false);
@@ -215,6 +211,7 @@ function HorsesContent() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingHorse, setEditingHorse] = useState<Horse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFabMenu, setShowFabMenu] = useState(false);
   const [workloadSearchTerm, setWorkloadSearchTerm] = useState('');
   const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
   const [selectedWorkload, setSelectedWorkload] = useState<HorseWorkload | null>(null);
@@ -224,13 +221,8 @@ function HorsesContent() {
   const [newReport, setNewReport] = useState({ date: '', focus: '', exercisesDone: '', duration: 60, rating: 5 as 1 | 2 | 3 | 4 | 5, notes: '' });
   const [documentsSearchTerm, setDocumentsSearchTerm] = useState('');
   const [selectedDocuments, setSelectedDocuments] = useState<HorseDocuments | null>(null);
-
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab && ['horses', 'health', 'feeding', 'workload', 'training', 'documents'].includes(tab)) {
-      setActiveTab(tab as 'horses' | 'health' | 'feeding' | 'workload' | 'training' | 'documents');
-    }
-  }, [searchParams]);
+  const [componentMounted, setComponentMounted] = useState(false);
+  const { user, isAuthenticated: checkAuth, activeStableId, hasHydrated } = useAuthStore();
   const [formData, setFormData] = useState({
     name: '',
     breed: '',
@@ -242,6 +234,7 @@ function HorsesContent() {
     dateOfBirth: '',
     registrationNumber: '',
     microchipNumber: '',
+    passportNumber: '',
     level: 'intermediate' as Horse['level'],
     status: 'available' as Horse['status'],
     discipline: 'pleasure' as Horse['discipline'],
@@ -253,16 +246,20 @@ function HorsesContent() {
     image: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    setComponentMounted(true);
+  }, []);
 
   const [horses, setHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState(false);
+  const [horseHealth, setHorseHealth] = useState<HorseHealth[]>([]);
+  const [horseFeeding, setHorseFeeding] = useState<HorseFeeding[]>([]);
+  const [horseTraining, setHorseTraining] = useState<HorseTraining[]>([]);
+  const [horseDocuments, setHorseDocuments] = useState<HorseDocuments[]>([]);
+  const [horseWorkload, setHorseWorkload] = useState<HorseWorkload[]>([]);
 
   useEffect(() => {
-    if (!activeStableId) {
+    if (!componentMounted || !activeStableId) {
       setLoading(false);
       return;
     }
@@ -279,11 +276,19 @@ function HorsesContent() {
       }
     };
     loadHorses();
-  }, [activeStableId]);
+  }, [activeStableId, componentMounted]);
+
+  if (!componentMounted || !hasHydrated) {
+    return null;
+  }
+
+  if (!checkAuth()) {
+    return null;
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
+      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue" suppressHydrationWarning>
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
         <div className="lg:ml-72 min-h-screen flex items-center justify-center">
           <p className="text-marineBlue">Ładowanie koni...</p>
@@ -334,16 +339,6 @@ function HorsesContent() {
     { value: 'overdue', label: 'Przeterminowane', color: 'bg-red-100 text-red-800' },
   ];
 
-  const [horseHealth, setHorseHealth] = useState<HorseHealth[]>([]);
-
-  const [horseFeeding, setHorseFeeding] = useState<HorseFeeding[]>([]);
-
-  const [horseTraining, setHorseTraining] = useState<HorseTraining[]>([]);
-
-  const [horseDocuments, setHorseDocuments] = useState<HorseDocuments[]>([]);
-
-  const [horseWorkload, setHorseWorkload] = useState<HorseWorkload[]>([]);
-
   const filteredWorkload = horseWorkload.filter(w =>
     w.horseName.toLowerCase().includes(workloadSearchTerm.toLowerCase())
   );
@@ -373,6 +368,7 @@ function HorsesContent() {
       dateOfBirth: '',
       registrationNumber: '',
       microchipNumber: '',
+      passportNumber: '',
       level: 'intermediate',
       status: 'available',
       discipline: 'pleasure',
@@ -399,13 +395,14 @@ function HorsesContent() {
       dateOfBirth: horse.dateOfBirth,
       registrationNumber: horse.registrationNumber || '',
       microchipNumber: horse.microchipNumber || '',
+      passportNumber: (horse as any).passportNumber || '',
       level: horse.level,
       status: horse.status,
       discipline: horse.discipline,
       boxNumber: horse.boxNumber || '',
       owner: horse.owner || '',
       description: horse.description,
-      specialSkills: horse.specialSkills,
+      specialSkills: horse.specialSkills || [],
       healthNotes: horse.healthNotes,
       image: horse.image || '',
     });
@@ -452,20 +449,16 @@ function HorsesContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
+    <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue" suppressHydrationWarning>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
       
       <div className="lg:ml-72 min-h-screen pb-20 lg:pb-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-gradient-to-r from-deepNavy to-oceanBlue text-white p-4 flex items-center justify-between sticky top-0 z-30">
-          <Image
-            src="/zdj/horsemanagologo3"
-            alt="HORSEmanago"
-            width={100}
-            height={100}
-            className="rounded-lg"
-          />
-          <button 
+          <div className="w-16 h-16 bg-white/10 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-xs">HM</span>
+          </div>
+          <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
@@ -473,12 +466,30 @@ function HorsesContent() {
           </button>
         </div>
 
-        <div className="p-4 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-deepNavy mb-2">Konie</h1>
-              <p className="text-marineBlue">Zarządzaj stadem koni</p>
+        <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+          {/* Masthead */}
+          <div className="rounded-3xl bg-gradient-to-r from-deepNavy via-oceanBlue to-marineBlue text-white overflow-hidden shadow-xl">
+            <div className="p-6 sm:p-6 lg:p-10 flex flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              <div>
+                <p className="text-white/60 text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-1 sm:mb-2">Stajnia</p>
+                <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Konie</h1>
+                <p className="text-white/75 text-xs sm:text-sm lg:text-base mt-1 sm:mt-2 max-w-md hidden sm:block">
+                  Zarządzaj stadem koni i ich zdrowiem.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (activeTab === 'horses') handleAddHorse();
+                  else if (activeTab === 'health') { setEditingHealth(null); setShowHealthModal(true); }
+                  else if (activeTab === 'feeding') { setEditingFeeding(null); setShowFeedingModal(true); }
+                  else if (activeTab === 'workload') { setEditingWorkload(null); setShowWorkloadModal(true); }
+                  else if (activeTab === 'training') { setEditingTraining(null); setShowTrainingModal(true); }
+                  else if (activeTab === 'documents') { setEditingDocuments(null); setShowDocumentsModal(true); }
+                }}
+                className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-white text-deepNavy rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
             </div>
           </div>
 
@@ -549,29 +560,20 @@ function HorsesContent() {
           {/* Horses Tab */}
           {activeTab === 'horses' && (
             <>
-              <div className="mb-6 flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj konia..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
-                  />
-                </div>
-                <button
-                  onClick={handleAddHorse}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-5 py-3 rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 shrink-0"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj konia</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj konia..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
 
           {/* Horses List */}
           {filteredHorses.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg border border-iceBlue p-8 text-center">
+            <div className="bg-white rounded-3xl shadow-lg border border-iceBlue p-8 text-center">
               <div className="w-20 h-20 rounded-full bg-arcticBlue/50 flex items-center justify-center mx-auto mb-4">
                 <Plus className="w-10 h-10 text-oceanBlue" />
               </div>
@@ -652,17 +654,15 @@ function HorsesContent() {
           {/* Health Tab */}
           {activeTab === 'health' && (
             <>
-              <div className="mb-4 flex justify-end">
-                <button
-                  onClick={() => {
-                    setEditingHealth(null);
-                    setShowHealthModal(true);
-                  }}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj rekord zdrowia</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj rekordu zdrowia..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -799,17 +799,15 @@ function HorsesContent() {
           {/* Feeding Tab */}
           {activeTab === 'feeding' && (
             <>
-              <div className="mb-4 flex justify-end">
-                <button
-                  onClick={() => {
-                    setEditingFeeding(null);
-                    setShowFeedingModal(true);
-                  }}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Edytuj karmienie</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj karmienia..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -903,27 +901,15 @@ function HorsesContent() {
           {/* Workload Tab */}
           {activeTab === 'workload' && (
             <>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj obciążenia..."
-                    value={workloadSearchTerm}
-                    onChange={(e) => setWorkloadSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    setEditingWorkload(null);
-                    setShowWorkloadModal(true);
-                  }}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Ustaw limity</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj obciążenia..."
+                  value={workloadSearchTerm}
+                  onChange={(e) => setWorkloadSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1019,24 +1005,15 @@ function HorsesContent() {
           {/* Training Tab */}
           {activeTab === 'training' && (
             <>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj treningu..."
-                    value={trainingSearchTerm}
-                    onChange={(e) => setTrainingSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={() => { setEditingTraining(null); setShowTrainingModal(true); }}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj trening</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj treningu..."
+                  value={trainingSearchTerm}
+                  onChange={(e) => setTrainingSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1098,24 +1075,15 @@ function HorsesContent() {
           {/* Documents Tab */}
           {activeTab === 'documents' && (
             <>
-              <div className="mb-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-marineBlue" />
-                  <input
-                    type="text"
-                    placeholder="Szukaj dokumentów..."
-                    value={documentsSearchTerm}
-                    onChange={(e) => setDocumentsSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy text-sm"
-                  />
-                </div>
-                <button
-                  onClick={() => { setEditingDocuments(null); setShowDocumentsModal(true); }}
-                  className="bg-gradient-to-r from-oceanBlue to-marineBlue text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Dodaj dokumenty</span>
-                </button>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-marineBlue w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Szukaj dokumentów..."
+                  value={documentsSearchTerm}
+                  onChange={(e) => setDocumentsSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-iceBlue rounded-2xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/40 text-deepNavy placeholder:text-marineBlue/60"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1225,11 +1193,11 @@ function HorsesContent() {
                 </div>
               </div>
 
-              {selectedHorse.specialSkills.length > 0 && (
+              {selectedHorse.specialSkills?.length > 0 && (
                 <div className="mb-6">
                   <p className="text-xs text-marineBlue mb-2">Umiejętności</p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedHorse.specialSkills.map((skill, i) => (
+                    {selectedHorse.specialSkills?.map((skill, i) => (
                       <span key={i} className="px-3 py-1 rounded-full text-xs font-medium bg-white text-deepNavy border border-iceBlue">{skill}</span>
                     ))}
                   </div>
@@ -1876,8 +1844,8 @@ function HorsesContent() {
 
       {/* Health Edit Modal */}
       {showHealthModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-3xl h-full sm:h-auto sm:max-h-[85vh] rounded-none sm:rounded-3xl shadow-2xl overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-serif text-xl font-bold text-deepNavy">
@@ -2125,8 +2093,8 @@ function HorsesContent() {
 
       {/* Feeding Edit Modal */}
       {showFeedingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-2xl h-full sm:h-auto sm:max-h-[85vh] rounded-none sm:rounded-3xl shadow-2xl overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-serif text-xl font-bold text-deepNavy">
@@ -3043,11 +3011,5 @@ function HorsesContent() {
 }
 
 export default function HorsesPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue flex items-center justify-center">
-      <div className="text-deepNavy">Ładowanie...</div>
-    </div>}>
-      <HorsesContent />
-    </Suspense>
-  );
+  return <HorsesContent />;
 }

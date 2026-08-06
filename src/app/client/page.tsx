@@ -1,6 +1,6 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 import { useEffect, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
@@ -55,7 +55,7 @@ export default function ClientHubPage() {
   };
 
   const handleSelect = (id: string) => {
-    setActiveStable(id);
+    setActiveStable(id, 'CLIENT');
     router.push('/client/dashboard');
   };
 
@@ -89,7 +89,7 @@ export default function ClientHubPage() {
             <button
               onClick={() => {
                 logout();
-                router.push('/login');
+                router.push('/welcome');
               }}
               className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
               aria-label="Wyloguj"

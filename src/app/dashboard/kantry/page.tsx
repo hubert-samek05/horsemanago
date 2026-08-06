@@ -1,13 +1,14 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-import { useState } from 'react';
+export const dynamic = 'force-static';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
 import Image from 'next/image';
 import { Menu, Plus, X, Edit2, Trash2, MapPin, Clock, User, Calendar, Activity } from 'lucide-react';
+import api from '@/lib/api';
 
 interface Kantra {
   id: string;
@@ -40,13 +41,14 @@ interface KantraSession {
 
 export default function KantryPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, activeStableId } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'kantry' | 'sessions'>('kantry');
   const [showAddKantraModal, setShowAddKantraModal] = useState(false);
   const [showAddSessionModal, setShowAddSessionModal] = useState(false);
   const [editingKantra, setEditingKantra] = useState<Kantra | null>(null);
   const [editingSession, setEditingSession] = useState<KantraSession | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const [kantraFormData, setKantraFormData] = useState({
     name: '',
@@ -80,78 +82,52 @@ export default function KantryPage() {
     return null;
   }
 
-  const [kantry, setKantry] = useState<Kantra[]>([
-    {
-      id: '1',
-      name: 'Kantra A - Główna',
-      location: 'Stajnia Horsemanago',
-      type: 'outdoor',
-      size: 60,
-      surface: 'Piasek',
-      lighting: true,
-      obstacles: true,
-      maxCapacity: 4,
-      status: 'available',
-      notes: '',
-    },
-    {
-      id: '2',
-      name: 'Kantra B - Treningowa',
-      location: 'Stajnia Horsemanago',
-      type: 'indoor',
-      size: 40,
-      surface: 'Piasek',
-      lighting: true,
-      obstacles: false,
-      maxCapacity: 2,
-      status: 'available',
-      notes: '',
-    },
-    {
-      id: '3',
-      name: 'Kantra C - Trawna',
-      location: 'Stajnia Horsemanago',
-      type: 'grass',
-      size: 80,
-      surface: 'Trawa',
-      lighting: false,
-      obstacles: true,
-      maxCapacity: 6,
-      status: 'maintenance',
-      notes: 'Remont nawierzchni',
-    },
-  ]);
+  const [kantry, setKantry] = useState<Kantra[]>([]);
+  const [sessions, setSessions] = useState<KantraSession[]>([]);
+  const [horses, setHorses] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
 
-  const [sessions, setSessions] = useState<KantraSession[]>([
-    {
-      id: '1',
-      kantraId: '1',
-      kantraName: 'Kantra A - Główna',
-      horseId: '1',
-      horseName: 'Błyskawica',
-      riderId: '1',
-      riderName: 'Anna Kowalska',
-      startTime: '2024-03-15T10:00',
-      endTime: '2024-03-15T11:00',
-      duration: 60,
-      activity: 'training',
-      notes: '',
-    },
-    {
-      id: '2',
-      kantraId: '2',
-      kantraName: 'Kantra B - Treningowa',
-      horseId: '2',
-      horseName: 'Gwiazda',
-      riderId: '2',
-      riderName: 'Piotr Nowak',
-      startTime: '2024-03-15T11:30',
-      endTime: '2024-03-15T12:30',
-      duration: 60,
-      activity: 'lesson',
-      notes: '',
-    },
-  ]);
+  useEffect(() => {
+    if (!activeStableId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const loadData = async () => {
+      try {
+        const [kantryRes, sessionsRes, horsesRes, clientsRes] = await Promise.all([
+          api.get(`/kantry?stableId=${activeStableId}`),
+          api.get(`/kantry/sessions?stableId=${activeStableId}`),
+          api.get(`/horses?stableId=${activeStableId}`),
+          api.get(`/clients?stableId=${activeStableId}`)
+        ]);
+        setKantry(kantryRes.data || []);
+        setSessions(sessionsRes.data || []);
+        setHorses(horsesRes.data || []);
+        setClients(clientsRes.data || []);
+      } catch (error) {
+        console.error('Load data error:', error);
+        setKantry([]);
+        setSessions([]);
+        setHorses([]);
+        setClients([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [activeStableId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
+        <div className="lg:ml-72 min-h-screen flex items-center justify-center">
+          <p className="text-marineBlue">Ładowanie kantre...</p>
+        </div>
+      </div>
+    );
+  }
 
   const kantraTypes = [
     { value: 'indoor', label: 'Kryta' },
@@ -209,18 +185,31 @@ export default function KantryPage() {
     setShowAddKantraModal(true);
   };
 
-  const handleDeleteKantra = (id: string) => {
-    setKantry(kantry.filter(k => k.id !== id));
+  const handleDeleteKantra = async (id: string) => {
+    try {
+      await api.delete(`/kantry/${id}`);
+      setKantry(kantry.filter(k => k.id !== id));
+    } catch (error) {
+      console.error('Delete kantra error:', error);
+      alert('Nie udało się usunąć kantry');
+    }
   };
 
-  const handleSubmitKantra = (e: React.FormEvent) => {
+  const handleSubmitKantra = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingKantra) {
-      setKantry(kantry.map(k => k.id === editingKantra.id ? { ...k, ...kantraFormData } : k));
-    } else {
-      setKantry([...kantry, { id: Date.now().toString(), ...kantraFormData }]);
+    try {
+      if (editingKantra) {
+        const { data } = await api.put(`/kantry/${editingKantra.id}`, { ...kantraFormData, stableId: activeStableId });
+        setKantry(kantry.map(k => k.id === editingKantra.id ? data : k));
+      } else {
+        const { data } = await api.post('/kantry', { ...kantraFormData, stableId: activeStableId });
+        setKantry([...kantry, data]);
+      }
+      setShowAddKantraModal(false);
+    } catch (error) {
+      console.error('Save kantra error:', error);
+      alert('Nie udało się zapisać kantry');
     }
-    setShowAddKantraModal(false);
   };
 
   const handleAddSession = () => {
@@ -259,18 +248,31 @@ export default function KantryPage() {
     setShowAddSessionModal(true);
   };
 
-  const handleDeleteSession = (id: string) => {
-    setSessions(sessions.filter(s => s.id !== id));
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await api.delete(`/kantry/sessions/${id}`);
+      setSessions(sessions.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Delete session error:', error);
+      alert('Nie udało się usunąć sesji');
+    }
   };
 
-  const handleSubmitSession = (e: React.FormEvent) => {
+  const handleSubmitSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingSession) {
-      setSessions(sessions.map(s => s.id === editingSession.id ? { ...s, ...sessionFormData } : s));
-    } else {
-      setSessions([...sessions, { id: Date.now().toString(), ...sessionFormData }]);
+    try {
+      if (editingSession) {
+        const { data } = await api.put(`/kantry/sessions/${editingSession.id}`, { ...sessionFormData, stableId: activeStableId });
+        setSessions(sessions.map(s => s.id === editingSession.id ? data : s));
+      } else {
+        const { data } = await api.post('/kantry/sessions', { ...sessionFormData, stableId: activeStableId });
+        setSessions([...sessions, data]);
+      }
+      setShowAddSessionModal(false);
+    } catch (error) {
+      console.error('Save session error:', error);
+      alert('Nie udało się zapisać sesji');
     }
-    setShowAddSessionModal(false);
   };
 
   const getKantraStats = () => {
@@ -731,23 +733,45 @@ export default function KantryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Koń</label>
-                  <input
-                    type="text"
-                    value={sessionFormData.horseName}
-                    onChange={(e) => setSessionFormData({ ...sessionFormData, horseName: e.target.value })}
+                  <select
+                    value={sessionFormData.horseId}
+                    onChange={(e) => {
+                      const horse = horses.find(h => h.id === e.target.value);
+                      setSessionFormData({
+                        ...sessionFormData,
+                        horseId: e.target.value,
+                        horseName: horse ? horse.name : '',
+                      });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
                     required
-                  />
+                  >
+                    <option value="">Wybierz konia</option>
+                    {horses.map((horse) => (
+                      <option key={horse.id} value={horse.id}>{horse.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-deepNavy mb-2">Jeździec (opcjonalnie)</label>
-                  <input
-                    type="text"
-                    value={sessionFormData.riderName}
-                    onChange={(e) => setSessionFormData({ ...sessionFormData, riderName: e.target.value })}
+                  <select
+                    value={sessionFormData.riderId}
+                    onChange={(e) => {
+                      const client = clients.find(c => c.id === e.target.value);
+                      setSessionFormData({
+                        ...sessionFormData,
+                        riderId: e.target.value,
+                        riderName: client ? `${client.user.firstName} ${client.user.lastName}` : '',
+                      });
+                    }}
                     className="w-full px-4 py-3 rounded-xl border border-iceBlue focus:outline-none focus:border-oceanBlue text-deepNavy text-sm"
-                  />
+                  >
+                    <option value="">Brak</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>{client.user.firstName} {client.user.lastName}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
