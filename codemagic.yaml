@@ -80,7 +80,7 @@ workflows:
             -sdk iphonesimulator \
             -configuration Debug \
             -derivedDataPath build/DerivedData \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
             build 2>&1 | tee /tmp/simbuild.log
           echo "=== Build exit status: $? ==="
       - name: Boot simulator, launch app, capture crash
@@ -88,7 +88,12 @@ workflows:
           set +e
           APP_PATH=$(find build/DerivedData -name "App.app" -path "*iphonesimulator*" | head -1)
           echo "Found app at: $APP_PATH"
-          DEVICE_ID=$(xcrun simctl create "DiagnosticIPhone" "iPhone 15" 2>/dev/null)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: App.app not found in DerivedData, aborting."
+            find build/DerivedData -maxdepth 6 -iname "*.app"
+            exit 1
+          fi
+          DEVICE_ID=$(xcrun simctl create "DiagnosticIPhone" "iPhone 17 Pro Max" 2>/dev/null)
           echo "Created device: $DEVICE_ID"
           xcrun simctl boot "$DEVICE_ID"
           sleep 20
