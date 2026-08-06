@@ -48,6 +48,30 @@ workflows:
           echo "=== Full xcodebuild log ==="
           cat /tmp/xcodebuild_logs/*.log 2>/dev/null || echo "No xcodebuild log file found"
           exit $EXIT_CODE
+      - name: Inspect signed entitlements and binary
+        script: |
+          set +e
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
+          echo "IPA path: $IPA_PATH"
+          if [ -n "$IPA_PATH" ]; then
+            TMP_UNZIP=/tmp/ipa_inspect
+            rm -rf "$TMP_UNZIP" && mkdir -p "$TMP_UNZIP"
+            unzip -q "$IPA_PATH" -d "$TMP_UNZIP"
+            APP_BUNDLE=$(find "$TMP_UNZIP/Payload" -maxdepth 1 -name "*.app" | head -1)
+            echo "=== App bundle: $APP_BUNDLE ==="
+            echo "=== Embedded entitlements ==="
+            codesign -d --entitlements :- "$APP_BUNDLE" 2>&1
+            echo "=== Codesign verification ==="
+            codesign -dvvv "$APP_BUNDLE" 2>&1
+            echo "=== Provisioning profile entitlements ==="
+            security cms -D -i "$APP_BUNDLE/embedded.mobileprovision" 2>/dev/null | plutil -extract Entitlements xml1 -o - - 2>&1
+            echo "=== Binary architectures ==="
+            lipo -info "$APP_BUNDLE/App" 2>&1
+            echo "=== Frameworks embedded ==="
+            ls -la "$APP_BUNDLE/Frameworks" 2>&1
+          else
+            echo "No IPA found to inspect"
+          fi
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
