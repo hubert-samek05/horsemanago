@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'HORSEmanago',
   webDir: 'public',
   server: {
-    url: 'https://horsemanago.net',
+    url: 'https://horsemanago.net/welcome',
     allowNavigation: ['*'],
   },
   ios: {

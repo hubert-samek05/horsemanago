@@ -1,8 +1,7 @@
 'use client';
 
-export const dynamic = 'force-static';
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 
@@ -10,18 +9,10 @@ export default function WelcomePage() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, hasHydrated } = useAuthStore();
-  const [isClient, setIsClient] = useState(false);
   const isRedirecting = useRef(false);
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    // Prevent multiple redirects
-    if (!isClient || !hasHydrated || isRedirecting.current) return;
-
-    // Only redirect if we're actually on the welcome page
+    if (!hasHydrated || isRedirecting.current) return;
     if (pathname !== '/welcome') return;
 
     if (user) {
@@ -32,26 +23,17 @@ export default function WelcomePage() {
         (roles.INSTRUCTOR?.length > 0) ||
         (roles.STABLE_WORKER?.length > 0)
       );
-      
+
       let targetPath = '/dashboard';
       if (hasStableRoles) {
         targetPath = '/select-stable';
       } else if (roles?.CLIENT?.length > 0 || user.role === 'CLIENT') {
         targetPath = '/client';
       }
-      
-      // Use replace instead of push to avoid history issues
+
       router.replace(targetPath);
     }
-  }, [hasHydrated, user, router, isClient, pathname]);
-
-  if (!isClient) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-black">
-        <div className="text-white text-lg">Ładowanie...</div>
-      </div>
-    );
-  }
+  }, [hasHydrated, user, router, pathname]);
 
   if (user) {
     return (
@@ -63,7 +45,6 @@ export default function WelcomePage() {
 
   return (
     <div className="h-screen w-screen relative flex flex-col items-center justify-center overflow-hidden bg-black">
-      {/* Background Image */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/60 z-10" />
         <img
@@ -73,9 +54,7 @@ export default function WelcomePage() {
         />
       </div>
 
-      {/* Content */}
       <div className="relative z-20 flex flex-col items-center justify-center px-6 w-full max-w-md h-full">
-        {/* Welcome Text and Logo together */}
         <div className="flex flex-col items-center mb-4">
           <p className="text-white text-2xl md:text-3xl font-serif font-semibold drop-shadow-lg leading-none m-0 p-0">
             Witaj w
@@ -89,7 +68,6 @@ export default function WelcomePage() {
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="w-full max-w-xs space-y-3">
           <Link href="/login?direct=1" className="block">
             <button className="w-full bg-white/95 backdrop-blur-sm text-deepNavy font-semibold text-base py-3 px-6 rounded-2xl shadow-2xl hover:bg-white transition-all duration-300 hover:scale-105">
