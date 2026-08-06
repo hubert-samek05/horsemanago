@@ -96,6 +96,8 @@ workflows:
   android-workflow:
     name: Android Build
     environment:
+      groups:
+        - google-play
       vars:
         BUNDLE_ID: "net.horsemanago2"
     triggering:
@@ -121,3 +123,7 @@ workflows:
           ./gradlew bundleRelease
     artifacts:
       - android/app/build/outputs/bundle/release/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT
+        track: internal
