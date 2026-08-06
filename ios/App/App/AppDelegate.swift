@@ -7,7 +7,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        NSLog("### AppDelegate: didFinishLaunching")
+        window = UIWindow(frame: UIScreen.main.bounds)
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        if let initialVC = storyboard.instantiateInitialViewController() {
+            NSLog("### AppDelegate: initialVC = %@", String(describing: type(of: initialVC)))
+            window?.rootViewController = initialVC
+        } else {
+            NSLog("### AppDelegate: initialVC is nil, using plain UIViewController")
+            window?.rootViewController = UIViewController()
+        }
+        window?.makeKeyAndVisible()
+        let isKey = window?.isKeyWindow ?? false
+        NSLog("### AppDelegate: isKey=%@, root=%@", isKey ? "YES" : "NO", String(describing: window?.rootViewController))
         return true
     }
 
@@ -46,11 +58,5 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
-    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
-    }
-
-    func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
-    }
 
 }
