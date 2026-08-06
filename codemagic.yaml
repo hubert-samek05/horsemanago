@@ -135,13 +135,15 @@ workflows:
             find build/DerivedData -maxdepth 6 -iname "*.app"
             exit 1
           fi
+          echo "=== Ad-hoc signing the simulator app ==="
+          codesign --sign - --force --deep "$APP_PATH" 2>&1
           DEVICE_ID=$(xcrun simctl create "DiagnosticIPhone" "iPhone 17 Pro Max" 2>/dev/null)
           echo "Created device: $DEVICE_ID"
           xcrun simctl boot "$DEVICE_ID"
           sleep 20
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           echo "=== Starting log stream in background (App + WebContent + GPU processes) ==="
-          xcrun simctl spawn "$DEVICE_ID" log stream --predicate "process == 'App' OR process CONTAINS 'WebContent' OR process CONTAINS 'com.apple.WebKit' OR process CONTAINS 'SpringBoard' OR process CONTAINS 'RunningBoard' OR eventMessage CONTAINS 'crash' OR eventMessage CONTAINS 'Terminat' OR eventMessage CONTAINS '$BUNDLE_ID'" --style compact > /tmp/app_console.log 2>&1 &
+          xcrun simctl spawn "$DEVICE_ID" log stream --predicate "process == 'App' OR process CONTAINS 'WebContent' OR process CONTAINS 'com.apple.WebKit' OR process CONTAINS 'RunningBoard' OR process CONTAINS 'amfi' OR eventMessage CONTAINS 'crash' OR eventMessage CONTAINS 'Terminat'" --style compact > /tmp/app_console.log 2>&1 &
           LOG_PID=$!
           sleep 2
           echo "=== Launching app ==="
@@ -161,9 +163,9 @@ workflows:
           find ~/Library/Logs/DiagnosticReports -iname "*.ips" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
           echo "=== Listing CoreSimulator device logs directory ==="
           find "$HOME/Library/Logs/CoreSimulator/$DEVICE_ID" -type f 2>&1
-          echo "=== Filtered log dump (focused, 60s max) ==="
-          ( xcrun simctl spawn "$DEVICE_ID" log show --predicate "process == 'App' OR process CONTAINS 'SpringBoard' OR process CONTAINS 'RunningBoard' OR (eventMessage CONTAINS '$BUNDLE_ID')" --style compact --last 3m > /tmp/filtered_log.txt 2>&1 & LOGSHOW_PID=$!; sleep 60; kill $LOGSHOW_PID 2>/dev/null )
-          grep -iE '###|Terminat|Exception|crashed|fault|Fatal|Error:' /tmp/filtered_log.txt > /tmp/filtered_log_focused.txt 2>/dev/null || true
+          echo "=== Filtered log dump (focused, 30s) ==="
+          ( xcrun simctl spawn "$DEVICE_ID" log show --predicate "process == 'App' OR process CONTAINS 'SpringBoard' OR process CONTAINS 'RunningBoard' OR process CONTAINS 'amfi' OR (eventMessage CONTAINS '$BUNDLE_ID')" --style compact --last 2m > /tmp/filtered_log.txt 2>&1 & LOGSHOW_PID=$!; sleep 30; kill $LOGSHOW_PID 2>/dev/null )
+          grep -iE '###|Security error|Terminat|Exception|crashed|fault|Fatal|amfi|RBS|Cannot' /tmp/filtered_log.txt > /tmp/filtered_log_focused.txt 2>/dev/null || true
           cat /tmp/filtered_log_focused.txt
           xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null
           xcrun simctl delete "$DEVICE_ID" 2>/dev/null
