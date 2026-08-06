@@ -146,9 +146,14 @@ workflows:
           kill $LOG_PID 2>/dev/null
           echo "=== App console output ==="
           cat /tmp/app_console.log
-          echo "=== Diagnostic Reports (all crash files, any process) ==="
-          find ~/Library/Logs/DiagnosticReports -iname "*.ips" -newer /tmp/simbuild.log -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
-          find "$HOME/Library/Logs/CoreSimulator/$DEVICE_ID" -iname "*crash*" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
+          echo "=== Listing DiagnosticReports directory (unfiltered) ==="
+          ls -la ~/Library/Logs/DiagnosticReports/ 2>&1
+          echo "=== Diagnostic Reports content (all .ips files) ==="
+          find ~/Library/Logs/DiagnosticReports -iname "*.ips" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
+          echo "=== Listing CoreSimulator device logs directory ==="
+          find "$HOME/Library/Logs/CoreSimulator/$DEVICE_ID" -type f 2>&1
+          echo "=== Full raw log dump for last 2 minutes (unfiltered, all processes) ==="
+          xcrun simctl spawn "$DEVICE_ID" log show --last 2m --style compact 2>&1 | grep -iE "horsemanago|net\.horsemanago2|App\[|crash|fault|exception|terminat|kill" | tail -200
           xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null
           xcrun simctl delete "$DEVICE_ID" 2>/dev/null
     artifacts:
