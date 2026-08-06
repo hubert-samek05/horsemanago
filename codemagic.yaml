@@ -25,9 +25,6 @@ workflows:
       - name: Install dependencies
         script: |
           npm install
-      - name: Build frontend
-        script: |
-          npm run build
       - name: Update Capacitor
         script: |
           npx cap sync ios
@@ -111,9 +108,6 @@ workflows:
       - name: Install dependencies
         script: |
           npm install
-      - name: Build frontend
-        script: |
-          npm run build
       - name: Update Capacitor
         script: |
           npx cap sync android

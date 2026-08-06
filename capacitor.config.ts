@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'net.horsemanago2',
   appName: 'HORSEmanago',
-  webDir: 'dist',
+  webDir: 'public',
   server: {
     url: 'https://horsemanago.net/welcome',
     allowNavigation: ['*'],
