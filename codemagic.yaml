@@ -152,8 +152,9 @@ workflows:
           find ~/Library/Logs/DiagnosticReports -iname "*.ips" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
           echo "=== Listing CoreSimulator device logs directory ==="
           find "$HOME/Library/Logs/CoreSimulator/$DEVICE_ID" -type f 2>&1
-          echo "=== Filtered log dump (timeout-protected, 60s max) ==="
-          timeout 60 xcrun simctl spawn "$DEVICE_ID" log show --predicate 'eventMessage CONTAINS "horsemanago" OR eventMessage CONTAINS "Terminat" OR eventMessage CONTAINS "crash" OR eventMessage CONTAINS "fault"' --style compact --last 3m 2>&1 | tail -200 || echo "log show timed out or failed"
+          echo "=== Filtered log dump (bundle-specific, 60s max) ==="
+          ( xcrun simctl spawn "$DEVICE_ID" log show --predicate "process == \"App\" OR (eventMessage CONTAINS \"$BUNDLE_ID\")" --style compact --last 3m > /tmp/filtered_log.txt 2>&1 & LOGSHOW_PID=$!; sleep 60; kill $LOGSHOW_PID 2>/dev/null )
+          cat /tmp/filtered_log.txt
           xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null
           xcrun simctl delete "$DEVICE_ID" 2>/dev/null
     artifacts:
