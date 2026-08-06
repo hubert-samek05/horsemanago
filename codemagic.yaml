@@ -76,11 +76,12 @@ workflows:
               echo "--- $fw ---"
               codesign -dvvv "$fw" 2>&1
             done
-            echo "=== spctl assessment ==="
-            spctl -a -vvv --type execute "$APP_BUNDLE" 2>&1
+            echo "=== spctl assessment (expected to be irrelevant/rejected for iOS binaries, informational only) ==="
+            spctl -a -vvv --type execute "$APP_BUNDLE" 2>&1 || true
           else
             echo "No IPA found to inspect"
           fi
+          exit 0
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -132,19 +133,21 @@ workflows:
           xcrun simctl boot "$DEVICE_ID"
           sleep 20
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
-          echo "=== Starting log stream in background ==="
-          xcrun simctl spawn "$DEVICE_ID" log stream --predicate 'process == "App"' --style compact > /tmp/app_console.log 2>&1 &
+          echo "=== Starting log stream in background (App + WebContent + GPU processes) ==="
+          xcrun simctl spawn "$DEVICE_ID" log stream --predicate 'process == "App" OR process CONTAINS "WebContent" OR process CONTAINS "com.apple.WebKit" OR eventMessage CONTAINS "crash" OR eventMessage CONTAINS "Terminat"' --style compact > /tmp/app_console.log 2>&1 &
           LOG_PID=$!
           sleep 2
           echo "=== Launching app ==="
           xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
           echo "Launch exit code: $?"
-          sleep 30
+          sleep 40
+          echo "=== Process list (is App still running?) ==="
+          xcrun simctl spawn "$DEVICE_ID" launchctl list 2>&1 | grep -i horsemanago || echo "App process NOT found in launchctl list"
           kill $LOG_PID 2>/dev/null
           echo "=== App console output ==="
           cat /tmp/app_console.log
-          echo "=== Diagnostic Reports (crash files) ==="
-          find ~/Library/Logs/DiagnosticReports -iname "*App*" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
+          echo "=== Diagnostic Reports (all crash files, any process) ==="
+          find ~/Library/Logs/DiagnosticReports -iname "*.ips" -newer /tmp/simbuild.log -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
           find "$HOME/Library/Logs/CoreSimulator/$DEVICE_ID" -iname "*crash*" -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
           xcrun simctl shutdown "$DEVICE_ID" 2>/dev/null
           xcrun simctl delete "$DEVICE_ID" 2>/dev/null
