@@ -25,6 +25,10 @@ workflows:
       - name: Install dependencies
         script: |
           npm install
+      - name: Patch Apple Sign-In plugin
+        script: |
+          cd ..
+          git apply frontend/patches/@capacitor-community+apple-sign-in+7.1.0.patch
       - name: Update Capacitor
         script: |
           npx cap sync ios
