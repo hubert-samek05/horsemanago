@@ -214,6 +214,7 @@ workflows:
   android-workflow:
     name: Android Build
     environment:
+      java: 21
       vars:
         BUNDLE_ID: "net.horsemanago2"
     triggering:
