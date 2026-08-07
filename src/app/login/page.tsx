@@ -359,7 +359,15 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error('Apple Sign-In error:', err);
-      setError(err.response?.data?.error || 'Wystąpił błąd podczas logowania przez Apple');
+      const details = err?.message || err?.errorMessage || err?.toString?.() || '';
+      let friendly = err.response?.data?.error || 'Wystąpił błąd podczas logowania przez Apple';
+      if (details && !err.response?.data?.error) {
+        friendly = details;
+      }
+      if (details.toLowerCase().includes('not implemented') || details.toLowerCase().includes('unimplemented')) {
+        friendly = 'Natywna wtyczka Sign in with Apple nie jest zainstalowana w tej wersji aplikacji. Zbuduj nowy build (25) w Codemagic.';
+      }
+      setError(friendly);
     } finally {
       setLoading(false);
     }
