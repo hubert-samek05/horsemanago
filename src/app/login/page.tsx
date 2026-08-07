@@ -10,6 +10,8 @@ import Script from 'next/script';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import Button from '@/components/ui/Button';
+import { Capacitor } from '@capacitor/core';
+import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 
 // Declare AppleID global type
 declare global {
@@ -263,9 +265,30 @@ export default function LoginPage() {
     console.log('Starting Apple Sign-In...');
     setLoading(true);
     try {
-      // Use Apple JS SDK for all platforms (web, iOS, Android via Capacitor)
-      console.log('Apple Sign-In using JS SDK');
-      if (window.AppleID) {
+      let id_token: string;
+      let firstName: string | undefined;
+      let lastName: string | undefined;
+
+      if (Capacitor.getPlatform() === 'ios') {
+        // Native iOS Sign in with Apple
+        console.log('Apple Sign-In using native iOS');
+        const result = await SignInWithApple.authorize({
+          clientId: 'net.horsemanago2',
+          redirectURI: 'https://horsemanago.net/login',
+          scopes: 'email name',
+          state: Math.random().toString(36).substring(2, 15),
+          nonce: Math.random().toString(36).substring(2, 15),
+        });
+        console.log('Apple Sign-In result:', result);
+        id_token = result.response.identityToken;
+        firstName = result.response.givenName || undefined;
+        lastName = result.response.familyName || undefined;
+      } else {
+        // Use Apple JS SDK for web and Android
+        console.log('Apple Sign-In using JS SDK');
+        if (!window.AppleID) {
+          throw new Error('Apple Sign-In SDK nie jest załadowany. Proszę odświeżyć stronę.');
+        }
         const data = await window.AppleID.auth.signIn({
           clientId: 'net.horsemanago2.signin',
           scope: 'email name',
@@ -276,61 +299,63 @@ export default function LoginPage() {
 
         console.log('Apple Sign-In result:', data);
         const { authorization, user } = data;
-        const { id_token } = authorization;
-        const { email, name } = user || {};
+        const { id_token: webIdToken } = authorization;
+        const { name } = user || {};
 
-        if (!id_token) {
-          throw new Error('Brak tokenu Apple');
-        }
+        id_token = webIdToken;
+        firstName = name?.firstName;
+        lastName = name?.lastName;
+      }
 
-        const response = await api.post('/auth/apple', {
-          identityToken: id_token,
-          firstName: name?.firstName,
-          lastName: name?.lastName,
-          role: activeTab === 'register' ? registerData.role : undefined,
-        });
-        const { token, user: authUser } = response.data;
+      if (!id_token) {
+        throw new Error('Brak tokenu Apple');
+      }
 
-        setAuth(authUser, token);
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(authUser));
+      const response = await api.post('/auth/apple', {
+        identityToken: id_token,
+        firstName,
+        lastName,
+        role: activeTab === 'register' ? registerData.role : undefined,
+      });
+      const { token, user: authUser } = response.data;
 
-        if (redirectTarget) {
-          router.push(redirectTarget);
-        } else if (authUser.roles) {
-          // Count total stables across all roles
-          const ownerStables = authUser.roles.STABLE_OWNER || [];
-          const instructorStables = authUser.roles.INSTRUCTOR || [];
-          const workerStables = authUser.roles.STABLE_WORKER || [];
-          const clientStables = authUser.roles.CLIENT || [];
-          
-          const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
-          const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
-          
-          if (hasStableRole && totalStables === 1) {
-            // User has only one stable - redirect directly to dashboard
-            const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
-            router.push(`/dashboard?stableId=${stable.stableId}`);
-          } else if (hasStableRole) {
-            // User has multiple stables - redirect to stable selection
-            router.push('/select-stable');
-          } else if (clientStables.length > 0) {
-            // User is only a client - redirect to client panel
-            router.push('/client');
-          } else if (authUser.role === 'CLIENT') {
-            // Client role with no specific stables - go to client panel
-            router.push('/client');
-          } else {
-            router.push('/dashboard');
-          }
+      setAuth(authUser, token);
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(authUser));
+
+      if (redirectTarget) {
+        router.push(redirectTarget);
+      } else if (authUser.roles) {
+        // Count total stables across all roles
+        const ownerStables = authUser.roles.STABLE_OWNER || [];
+        const instructorStables = authUser.roles.INSTRUCTOR || [];
+        const workerStables = authUser.roles.STABLE_WORKER || [];
+        const clientStables = authUser.roles.CLIENT || [];
+        
+        const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
+        const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
+        
+        if (hasStableRole && totalStables === 1) {
+          // User has only one stable - redirect directly to dashboard
+          const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
+          router.push(`/dashboard?stableId=${stable.stableId}`);
+        } else if (hasStableRole) {
+          // User has multiple stables - redirect to stable selection
+          router.push('/select-stable');
+        } else if (clientStables.length > 0) {
+          // User is only a client - redirect to client panel
+          router.push('/client');
         } else if (authUser.role === 'CLIENT') {
           // Client role with no specific stables - go to client panel
           router.push('/client');
         } else {
           router.push('/dashboard');
         }
+      } else if (authUser.role === 'CLIENT') {
+        // Client role with no specific stables - go to client panel
+        router.push('/client');
       } else {
-        setError('Apple Sign-In SDK nie jest załadowany. Proszę odświeżyć stronę.');
+        router.push('/dashboard');
       }
     } catch (err: any) {
       console.error('Apple Sign-In error:', err);
