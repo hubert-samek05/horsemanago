@@ -12,6 +12,8 @@ import { useAuthStore } from '@/lib/store';
 import Button from '@/components/ui/Button';
 import { Capacitor } from '@capacitor/core';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
+import { Browser } from '@capacitor/browser';
+import { App as CapacitorApp } from '@capacitor/app';
 
 // Declare AppleID global type
 declare global {
@@ -145,6 +147,79 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const completeLoginRedirect = (authUser: any) => {
+    if (redirectTarget) {
+      router.push(redirectTarget);
+    } else if (authUser.roles) {
+      const ownerStables = authUser.roles.STABLE_OWNER || [];
+      const instructorStables = authUser.roles.INSTRUCTOR || [];
+      const workerStables = authUser.roles.STABLE_WORKER || [];
+      const clientStables = authUser.roles.CLIENT || [];
+
+      const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
+      const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
+
+      if (hasStableRole && totalStables === 1) {
+        const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
+        router.push(`/dashboard?stableId=${stable.stableId}`);
+      } else if (hasStableRole) {
+        router.push('/select-stable');
+      } else if (clientStables.length > 0) {
+        router.push('/client');
+      } else if (authUser.role === 'CLIENT') {
+        router.push('/client');
+      } else {
+        router.push('/dashboard');
+      }
+    } else if (authUser.role === 'CLIENT') {
+      router.push('/client');
+    } else {
+      router.push('/dashboard');
+    }
+  };
+
+  // Handle the deep-link redirect coming back from the system browser
+  // after Sign in with Apple completes on Android (and iOS fallback).
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listenerPromise = CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+      try {
+        Browser.close().catch(() => {});
+        const parsed = new URL(url);
+        if (parsed.pathname !== '/auth/apple' && parsed.host !== 'auth') return;
+
+        const errorParam = parsed.searchParams.get('error');
+        if (errorParam) {
+          setError('Wystąpił błąd podczas logowania przez Apple');
+          setLoading(false);
+          return;
+        }
+
+        const data = parsed.searchParams.get('data');
+        if (!data) return;
+
+        const decoded = JSON.parse(atob(data.replace(/-/g, '+').replace(/_/g, '/')));
+        const { token, user: authUser } = decoded;
+
+        setAuth(authUser, token);
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(authUser));
+        setLoading(false);
+        completeLoginRedirect(authUser);
+      } catch (err) {
+        console.error('Failed to process Apple Sign-In redirect:', err);
+        setError('Wystąpił błąd podczas logowania przez Apple');
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      listenerPromise.then((listener) => listener.remove());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [redirectTarget]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -265,6 +340,29 @@ export default function LoginPage() {
     console.log('Starting Apple Sign-In...');
     setLoading(true);
     try {
+      if (Capacitor.getPlatform() === 'android') {
+        // Android: Apple's JS popup flow does not work inside an embedded
+        // WebView, so we open the real authorization page in the system
+        // browser and let the backend redirect back into the app via a
+        // custom URL scheme deep link (handled by the appUrlOpen listener).
+        console.log('Apple Sign-In using system browser (Android)');
+        const state = btoa(
+          JSON.stringify({ role: activeTab === 'register' ? registerData.role : undefined })
+        );
+        const params = new URLSearchParams({
+          response_type: 'code id_token',
+          response_mode: 'form_post',
+          client_id: 'net.horsemanago2.signin',
+          redirect_uri: 'https://horsemanago.net/api/auth/apple/callback',
+          scope: 'email name',
+          state,
+        });
+        await Browser.open({
+          url: `https://appleid.apple.com/auth/authorize?${params.toString()}`,
+        });
+        return;
+      }
+
       let id_token: string;
       let firstName: string | undefined;
       let lastName: string | undefined;
@@ -284,7 +382,7 @@ export default function LoginPage() {
         firstName = result.response.givenName || undefined;
         lastName = result.response.familyName || undefined;
       } else {
-        // Use Apple JS SDK for web and Android
+        // Use Apple JS SDK for web
         console.log('Apple Sign-In using JS SDK');
         if (!window.AppleID) {
           throw new Error('Apple Sign-In SDK nie jest załadowany. Proszę odświeżyć stronę.');
@@ -323,40 +421,7 @@ export default function LoginPage() {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(authUser));
 
-      if (redirectTarget) {
-        router.push(redirectTarget);
-      } else if (authUser.roles) {
-        // Count total stables across all roles
-        const ownerStables = authUser.roles.STABLE_OWNER || [];
-        const instructorStables = authUser.roles.INSTRUCTOR || [];
-        const workerStables = authUser.roles.STABLE_WORKER || [];
-        const clientStables = authUser.roles.CLIENT || [];
-        
-        const totalStables = ownerStables.length + instructorStables.length + workerStables.length + clientStables.length;
-        const hasStableRole = ownerStables.length > 0 || instructorStables.length > 0 || workerStables.length > 0;
-        
-        if (hasStableRole && totalStables === 1) {
-          // User has only one stable - redirect directly to dashboard
-          const stable = ownerStables[0] || instructorStables[0] || workerStables[0];
-          router.push(`/dashboard?stableId=${stable.stableId}`);
-        } else if (hasStableRole) {
-          // User has multiple stables - redirect to stable selection
-          router.push('/select-stable');
-        } else if (clientStables.length > 0) {
-          // User is only a client - redirect to client panel
-          router.push('/client');
-        } else if (authUser.role === 'CLIENT') {
-          // Client role with no specific stables - go to client panel
-          router.push('/client');
-        } else {
-          router.push('/dashboard');
-        }
-      } else if (authUser.role === 'CLIENT') {
-        // Client role with no specific stables - go to client panel
-        router.push('/client');
-      } else {
-        router.push('/dashboard');
-      }
+      completeLoginRedirect(authUser);
     } catch (err: any) {
       console.error('Apple Sign-In error:', err);
       const details = err?.message || err?.errorMessage || err?.toString?.() || '';
