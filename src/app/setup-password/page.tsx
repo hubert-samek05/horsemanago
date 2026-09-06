@@ -1,12 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import api from '@/lib/api';
 
 export default function SetupPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue flex items-center justify-center p-4">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-iceBlue border-t-oceanBlue" />
+      </div>
+    }>
+      <SetupPasswordForm />
+    </Suspense>
+  );
+}
+
+function SetupPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
