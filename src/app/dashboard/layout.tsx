@@ -14,7 +14,12 @@ function StableResolver() {
   const { isAuthenticated, hasHydrated, user, activeStableId, activeRole, setActiveStable } = useAuthStore();
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !hasHydrated || !isAuthenticated()) return;
+    if (typeof window === 'undefined' || !hasHydrated) return;
+    if (!isAuthenticated()) {
+      // Reset on logout so the next login re-resolves the active stable
+      resolveAttemptedFor = null;
+      return;
+    }
     const currentUserId = user?.id ?? null;
     if (resolveAttemptedFor === currentUserId) return;
 
