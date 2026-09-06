@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
 import Image from 'next/image';
-import { Plus, Search, Mail, Phone, Calendar, Menu, X, AlertCircle, ChevronRight, Users, UserCheck, Clock, TrendingUp, Trash2 } from 'lucide-react';
+import { Plus, Search, Mail, Phone, Calendar, Menu, X, AlertCircle, ChevronRight, Users, UserCheck, Clock, UserPlus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 
 interface Client {
@@ -39,27 +39,12 @@ const STATUS_TABS = [
 const statusBadge = (status: string) => {
   switch (status) {
     case 'accepted':
-      return { label: 'Aktywny', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' };
+      return { label: 'Aktywny', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' };
     case 'pending':
-      return { label: 'Oczekujący', cls: 'bg-amber-50 text-amber-700 ring-amber-200' };
+      return { label: 'Oczekujący', cls: 'bg-amber-50 text-amber-700 ring-amber-600/20' };
     default:
-      return { label: 'Nieaktywny', cls: 'bg-slate-100 text-slate-500 ring-slate-200' };
+      return { label: 'Nieaktywny', cls: 'bg-slate-100 text-slate-500 ring-slate-500/20' };
   }
-};
-
-const avatarColors = [
-  'from-oceanBlue to-marineBlue',
-  'from-emerald-500 to-teal-600',
-  'from-violet-500 to-purple-600',
-  'from-rose-500 to-pink-600',
-  'from-amber-500 to-orange-600',
-  'from-cyan-500 to-sky-600',
-];
-
-const avatarColor = (name: string) => {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return avatarColors[Math.abs(hash) % avatarColors.length];
 };
 
 export default function ClientsPage() {
@@ -201,15 +186,16 @@ export default function ClientsPage() {
     }
   };
 
-  const inputCls = 'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/30 focus:border-oceanBlue/50 text-deepNavy transition-all';
+  const inputCls = 'w-full px-4 py-2.5 bg-white border border-iceBlue rounded-lg focus:outline-none focus:ring-2 focus:ring-oceanBlue/30 focus:border-oceanBlue text-deepNavy text-sm transition-all placeholder:text-marineBlue/50';
+  const labelCls = 'block text-xs font-semibold text-marineBlue uppercase tracking-wider mb-1.5';
 
   return (
-    <div className="min-h-screen bg-[#F6F9FB]">
+    <div className="min-h-screen bg-arcticBlue">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
 
       <div className="lg:ml-72 min-h-screen pb-24 lg:pb-12">
         {/* Mobile Header */}
-        <div className="lg:hidden bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+        <div className="lg:hidden bg-white border-b border-iceBlue px-4 py-3 flex items-center justify-between sticky top-0 z-30">
           <Image
             src="/zdj/horsemanagologo3"
             alt="HORSEmanago"
@@ -219,7 +205,7 @@ export default function ClientsPage() {
           />
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+            className="p-2 hover:bg-arcticBlue rounded-lg transition-colors"
           >
             <Menu className="w-6 h-6 text-deepNavy" />
           </button>
@@ -231,14 +217,14 @@ export default function ClientsPage() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-oceanBlue mb-2">Baza klientów</p>
               <h1 className="font-serif text-3xl lg:text-4xl font-bold text-deepNavy">Klienci</h1>
-              <p className="text-slate-500 text-sm mt-2 max-w-md">
+              <p className="text-marineBlue text-sm mt-2 max-w-md">
                 Zarządzaj klientami stajni, ich statusami i danymi kontaktowymi.
               </p>
             </div>
             {canAddClients && (
               <button
                 onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-2 bg-deepNavy text-white px-5 py-3 rounded-2xl text-sm font-semibold shadow-sm hover:bg-oceanBlue transition-colors shrink-0"
+                className="inline-flex items-center gap-2 bg-oceanBlue text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-sm hover:bg-marineBlue transition-colors shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 Dodaj klienta
@@ -249,67 +235,65 @@ export default function ClientsPage() {
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-8">
             {[
-              { label: 'Wszyscy klienci', value: stats.total, icon: Users, accent: 'text-oceanBlue bg-oceanBlue/10' },
-              { label: 'Aktywni', value: stats.active, icon: UserCheck, accent: 'text-emerald-600 bg-emerald-50' },
-              { label: 'Oczekujący', value: stats.pending, icon: Clock, accent: 'text-amber-600 bg-amber-50' },
-              { label: 'Nowi w tym miesiącu', value: stats.newThisMonth, icon: TrendingUp, accent: 'text-violet-600 bg-violet-50' },
+              { label: 'Wszyscy klienci', value: stats.total, icon: Users },
+              { label: 'Aktywni', value: stats.active, icon: UserCheck },
+              { label: 'Oczekujący', value: stats.pending, icon: Clock },
+              { label: 'Nowi w tym miesiącu', value: stats.newThisMonth, icon: UserPlus },
             ].map((s) => (
-              <div key={s.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 lg:p-5">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${s.accent}`}>
-                  <s.icon className="w-4.5 h-4.5 w-[18px] h-[18px]" />
+              <div key={s.label} className="bg-white rounded-xl border border-iceBlue p-4 lg:p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-medium text-marineBlue">{s.label}</p>
+                  <s.icon className="w-4 h-4 text-blueGray" />
                 </div>
                 <p className="text-2xl lg:text-3xl font-bold text-deepNavy">{s.value}</p>
-                <p className="text-xs text-slate-500 mt-1">{s.label}</p>
               </div>
             ))}
           </div>
 
           {/* Search + Tabs */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 lg:p-5 mb-6">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4.5 h-4.5 w-[18px] h-[18px]" />
-                <input
-                  type="text"
-                  placeholder="Szukaj po imieniu, nazwisku, emailu lub telefonie..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-oceanBlue/30 focus:border-oceanBlue/50 text-deepNavy placeholder:text-slate-400 text-sm transition-all"
-                />
-              </div>
-              <div className="flex gap-1 bg-slate-100 rounded-xl p-1 overflow-x-auto">
-                {STATUS_TABS.map((tab) => (
-                  <button
-                    key={tab.value}
-                    onClick={() => setStatusFilter(tab.value)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                      statusFilter === tab.value
-                        ? 'bg-white text-deepNavy shadow-sm'
-                        : 'text-slate-500 hover:text-deepNavy'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blueGray w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Szukaj po imieniu, nazwisku, emailu lub telefonie..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-iceBlue rounded-lg focus:outline-none focus:ring-2 focus:ring-oceanBlue/30 focus:border-oceanBlue text-deepNavy placeholder:text-marineBlue/50 text-sm transition-all"
+              />
+            </div>
+            <div className="flex gap-1 bg-white border border-iceBlue rounded-lg p-1 overflow-x-auto">
+              {STATUS_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => setStatusFilter(tab.value)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all ${
+                    statusFilter === tab.value
+                      ? 'bg-oceanBlue text-white'
+                      : 'text-marineBlue hover:text-deepNavy hover:bg-arcticBlue'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Clients Grid */}
+          {/* Clients List */}
           {loading ? (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-16 text-center">
-              <div className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-slate-200 border-t-oceanBlue" />
-              <p className="mt-4 text-sm text-slate-500">Ładowanie klientów...</p>
+            <div className="bg-white rounded-xl border border-iceBlue p-16 text-center">
+              <div className="inline-block h-7 w-7 animate-spin rounded-full border-[3px] border-iceBlue border-t-oceanBlue" />
+              <p className="mt-4 text-sm text-marineBlue">Ładowanie klientów...</p>
             </div>
           ) : filteredClients.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 lg:p-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-oceanBlue/10 flex items-center justify-center mx-auto mb-5">
-                <Users className="w-8 h-8 text-oceanBlue" />
+            <div className="bg-white rounded-xl border border-iceBlue p-12 lg:p-16 text-center">
+              <div className="w-14 h-14 rounded-xl bg-arcticBlue flex items-center justify-center mx-auto mb-5">
+                <Users className="w-7 h-7 text-oceanBlue" />
               </div>
               <h3 className="font-serif text-xl font-bold text-deepNavy mb-2">
                 {searchTerm || statusFilter !== 'all' ? 'Brak wyników' : 'Brak klientów'}
               </h3>
-              <p className="text-sm text-slate-500 mb-6 max-w-sm mx-auto">
+              <p className="text-sm text-marineBlue mb-6 max-w-sm mx-auto">
                 {searchTerm || statusFilter !== 'all'
                   ? 'Spróbuj zmienić kryteria wyszukiwania lub filtr.'
                   : 'Dodaj pierwszego klienta ręcznie lub poczekaj, aż dołączą przez publiczną wizytówkę stajni.'}
@@ -317,7 +301,7 @@ export default function ClientsPage() {
               {canAddClients && !searchTerm && statusFilter === 'all' && (
                 <button
                   onClick={() => setShowModal(true)}
-                  className="inline-flex items-center gap-2 bg-deepNavy text-white px-5 py-3 rounded-2xl text-sm font-semibold hover:bg-oceanBlue transition-colors"
+                  className="inline-flex items-center gap-2 bg-oceanBlue text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-marineBlue transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Dodaj klienta
@@ -325,7 +309,7 @@ export default function ClientsPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl border border-iceBlue overflow-hidden divide-y divide-iceBlue/70">
               {filteredClients.map((client) => {
                 const badge = statusBadge(client.status);
                 const fullName = `${client.user.firstName} ${client.user.lastName}`.trim();
@@ -333,42 +317,39 @@ export default function ClientsPage() {
                   <button
                     key={client.id}
                     onClick={() => { setSelectedClient(client); setEditClientError(''); }}
-                    className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 text-left hover:shadow-md hover:border-oceanBlue/30 transition-all group"
+                    className="w-full flex items-center gap-4 px-4 lg:px-6 py-4 text-left hover:bg-arcticBlue/60 transition-colors group"
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        {client.user.avatar ? (
-                          <img src={client.user.avatar} alt={fullName} className="w-12 h-12 rounded-2xl object-cover" />
-                        ) : (
-                          <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarColor(fullName)} flex items-center justify-center text-white font-bold text-lg`}>
-                            {client.user.firstName.charAt(0)}{client.user.lastName.charAt(0)}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-deepNavy truncate">{fullName}</h3>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ring-1 ring-inset mt-1 ${badge.cls}`}>
-                            {badge.label}
+                    {client.user.avatar ? (
+                      <img src={client.user.avatar} alt={fullName} className="w-11 h-11 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full bg-oceanBlue/10 text-oceanBlue flex items-center justify-center font-semibold text-sm shrink-0">
+                        {client.user.firstName.charAt(0)}{client.user.lastName.charAt(0)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 className="font-semibold text-deepNavy text-sm">{fullName}</h3>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ring-1 ring-inset ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-marineBlue">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{client.user.email}</span>
+                        </span>
+                        {client.user.phone && (
+                          <span className="hidden sm:flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5 shrink-0" />
+                            {client.user.phone}
                           </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-oceanBlue transition-colors shrink-0" />
-                    </div>
-                    <div className="space-y-1.5 text-sm text-slate-500">
-                      <div className="flex items-center gap-2 truncate">
-                        <Mail className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{client.user.email}</span>
-                      </div>
-                      {client.user.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5 shrink-0" />
-                          <span>{client.user.phone}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5 shrink-0" />
-                        <span>Od {client.joinedAt ? new Date(client.joinedAt).toLocaleDateString('pl-PL') : new Date(client.createdAt).toLocaleDateString('pl-PL')}</span>
+                        )}
                       </div>
                     </div>
+                    <div className="hidden md:block text-xs text-marineBlue shrink-0">
+                      Od {client.joinedAt ? new Date(client.joinedAt).toLocaleDateString('pl-PL') : new Date(client.createdAt).toLocaleDateString('pl-PL')}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-blueGray group-hover:text-oceanBlue transition-colors shrink-0" />
                   </button>
                 );
               })}
@@ -381,37 +362,36 @@ export default function ClientsPage() {
 
       {/* Client Detail / Edit Modal */}
       {selectedClient && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-deepNavy/40 backdrop-blur-sm p-0 sm:p-4" onClick={() => { setSelectedClient(null); setEditClientError(''); }}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            {/* Modal header with avatar */}
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-deepNavy/50 p-0 sm:p-4" onClick={() => { setSelectedClient(null); setEditClientError(''); }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-7 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-6">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3.5">
                 {selectedClient.user.avatar ? (
-                  <img src={selectedClient.user.avatar} alt="" className="w-14 h-14 rounded-2xl object-cover" />
+                  <img src={selectedClient.user.avatar} alt="" className="w-12 h-12 rounded-full object-cover" />
                 ) : (
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${avatarColor(`${selectedClient.user.firstName} ${selectedClient.user.lastName}`)} flex items-center justify-center text-white font-bold text-xl`}>
+                  <div className="w-12 h-12 rounded-full bg-oceanBlue/10 text-oceanBlue flex items-center justify-center font-semibold">
                     {selectedClient.user.firstName.charAt(0)}{selectedClient.user.lastName.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <h2 className="font-serif text-xl font-bold text-deepNavy">Edytuj klienta</h2>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ring-1 ring-inset mt-1 ${statusBadge(selectedClient.status).cls}`}>
+                  <h2 className="font-serif text-lg font-bold text-deepNavy">Edytuj klienta</h2>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ring-1 ring-inset mt-0.5 ${statusBadge(selectedClient.status).cls}`}>
                     {statusBadge(selectedClient.status).label}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => { setSelectedClient(null); setEditClientError(''); }}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                className="p-2 hover:bg-arcticBlue rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5 text-marineBlue" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Imię *</label>
+                  <label className={labelCls}>Imię *</label>
                   <input
                     type="text"
                     value={selectedClient.user.firstName}
@@ -420,7 +400,7 @@ export default function ClientsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Nazwisko</label>
+                  <label className={labelCls}>Nazwisko</label>
                   <input
                     type="text"
                     value={selectedClient.user.lastName}
@@ -431,7 +411,7 @@ export default function ClientsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Email *</label>
+                <label className={labelCls}>Email *</label>
                 <input
                   type="email"
                   value={selectedClient.user.email}
@@ -441,7 +421,7 @@ export default function ClientsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Telefon</label>
+                <label className={labelCls}>Telefon</label>
                 <input
                   type="tel"
                   value={selectedClient.user.phone || ''}
@@ -451,7 +431,7 @@ export default function ClientsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Status</label>
+                <label className={labelCls}>Status</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { v: 'accepted', l: 'Aktywny' },
@@ -462,10 +442,10 @@ export default function ClientsPage() {
                       key={s.v}
                       type="button"
                       onClick={() => setSelectedClient({...selectedClient, status: s.v})}
-                      className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                      className={`py-2 rounded-lg text-sm font-medium border transition-all ${
                         selectedClient.status === s.v
-                          ? 'bg-deepNavy text-white border-deepNavy'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                          ? 'bg-oceanBlue text-white border-oceanBlue'
+                          : 'bg-white text-marineBlue border-iceBlue hover:border-oceanBlue/40'
                       }`}
                     >
                       {s.l}
@@ -475,7 +455,7 @@ export default function ClientsPage() {
               </div>
 
               {editClientError && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl p-3">
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg p-3">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{editClientError}</span>
                 </div>
@@ -485,15 +465,15 @@ export default function ClientsPage() {
                 <button
                   onClick={handleEditClient}
                   disabled={editClientLoading}
-                  className="flex-1 py-3 bg-deepNavy text-white rounded-xl font-semibold hover:bg-oceanBlue transition-colors disabled:opacity-60"
+                  className="flex-1 py-2.5 bg-oceanBlue text-white rounded-lg text-sm font-semibold hover:bg-marineBlue transition-colors disabled:opacity-60"
                 >
                   {editClientLoading ? 'Zapisywanie...' : 'Zapisz zmiany'}
                 </button>
                 <button
                   onClick={() => handleDeleteClient(selectedClient.id)}
-                  className="px-4 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-semibold hover:bg-red-100 transition-colors"
+                  className="px-4 py-2.5 bg-white text-red-600 border border-red-200 rounded-lg font-semibold hover:bg-red-50 transition-colors"
                 >
-                  <Trash2 className="w-5 h-5" />
+                  <Trash2 className="w-4.5 h-4.5 w-[18px] h-[18px]" />
                 </button>
               </div>
             </div>
@@ -503,23 +483,23 @@ export default function ClientsPage() {
 
       {/* Add Client Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-deepNavy/40 backdrop-blur-sm p-0 sm:p-4" onClick={() => { setShowModal(false); resetAddClientForm(); }}>
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-serif text-xl font-bold text-deepNavy">Dodaj klienta</h2>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-deepNavy/50 p-0 sm:p-4" onClick={() => { setShowModal(false); resetAddClientForm(); }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-7 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1.5">
+              <h2 className="font-serif text-lg font-bold text-deepNavy">Dodaj klienta</h2>
               <button
                 onClick={() => { setShowModal(false); resetAddClientForm(); }}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                className="p-2 hover:bg-arcticBlue rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5 text-marineBlue" />
               </button>
             </div>
-            <p className="text-sm text-slate-500 mb-6">Wypełnij dane — klient bez konta dostanie email z zaproszeniem.</p>
+            <p className="text-sm text-marineBlue mb-6">Wypełnij dane — klient bez konta dostanie email z zaproszeniem.</p>
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Imię *</label>
+                  <label className={labelCls}>Imię *</label>
                   <input
                     type="text"
                     value={newClientFirstName}
@@ -529,7 +509,7 @@ export default function ClientsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Nazwisko</label>
+                  <label className={labelCls}>Nazwisko</label>
                   <input
                     type="text"
                     value={newClientLastName}
@@ -541,7 +521,7 @@ export default function ClientsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Email *</label>
+                <label className={labelCls}>Email *</label>
                 <input
                   type="email"
                   value={newClientEmail}
@@ -552,7 +532,7 @@ export default function ClientsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Telefon</label>
+                <label className={labelCls}>Telefon</label>
                 <input
                   type="tel"
                   value={newClientPhone}
@@ -562,15 +542,15 @@ export default function ClientsPage() {
                 />
               </div>
 
-              <div className="flex items-start gap-3 bg-oceanBlue/5 border border-oceanBlue/15 rounded-xl p-4">
+              <div className="flex items-start gap-3 bg-arcticBlue border border-iceBlue rounded-lg p-3.5">
                 <Mail className="w-4 h-4 text-oceanBlue shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-marineBlue leading-relaxed">
                   Jeśli klient nie ma jeszcze konta w HORSEmanago, otrzyma email z zaproszeniem do jego utworzenia. Terminy i wizyty będą przypisane do niego już teraz.
                 </p>
               </div>
 
               {addClientError && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-xl p-3">
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg p-3">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{addClientError}</span>
                 </div>
@@ -579,7 +559,7 @@ export default function ClientsPage() {
               <button
                 onClick={handleAddClient}
                 disabled={addClientLoading}
-                className="w-full py-3.5 bg-deepNavy text-white rounded-xl font-semibold hover:bg-oceanBlue transition-colors disabled:opacity-60"
+                className="w-full py-3 bg-oceanBlue text-white rounded-lg text-sm font-semibold hover:bg-marineBlue transition-colors disabled:opacity-60"
               >
                 {addClientLoading ? 'Dodawanie...' : 'Dodaj klienta'}
               </button>
