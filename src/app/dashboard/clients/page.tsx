@@ -210,19 +210,21 @@ export default function ClientsPage() {
 
       <div className="lg:ml-72 min-h-screen pb-24 lg:pb-12">
         {/* Mobile Header */}
-        <div className="lg:hidden bg-white border-b border-iceBlue px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-          <Image
-            src="/zdj/horsemanagologo3"
-            alt="HORSEmanago"
-            width={90}
-            height={90}
-            className="rounded-lg"
-          />
+        <div className="lg:hidden bg-gradient-to-r from-deepNavy to-oceanBlue text-white p-4 flex items-center justify-between sticky top-0 z-30">
+          <div className="w-16 h-16 bg-white/10 rounded-lg flex items-center justify-center">
+            <Image
+              src="/zdj/horsemanagologo3"
+              alt="HORSEmanago"
+              width={56}
+              height={56}
+              className="rounded-lg"
+            />
+          </div>
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 hover:bg-arcticBlue rounded-lg transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
-            <Menu className="w-6 h-6 text-deepNavy" />
+            <Menu className="w-6 h-6 text-white" />
           </button>
         </div>
 
