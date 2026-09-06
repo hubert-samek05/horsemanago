@@ -27,6 +27,33 @@ export default function SelectStablePage() {
   const { user, token, setAuth, logout, hasHydrated, setActiveStable } = useAuthStore();
   const [roles, setRoles] = useState<UserRoles | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [stableForm, setStableForm] = useState({
+    name: '',
+    address: '',
+    city: '',
+    postalCode: '',
+    phone: '',
+    email: '',
+  });
+
+  const handleCreateStable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError('');
+    setCreating(true);
+    try {
+      const { data: stable } = await api.post('/stables', stableForm);
+      setActiveStable(stable.id, 'STABLE_OWNER');
+      router.push(`/dashboard?stableId=${stable.id}`);
+    } catch (err: any) {
+      console.error('Create stable error:', err);
+      const msg = err.response?.data?.errors?.[0]?.msg || err.response?.data?.error || 'Nie udało się utworzyć stajni';
+      setCreateError(msg);
+      setCreating(false);
+    }
+  };
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -158,17 +185,78 @@ export default function SelectStablePage() {
         </div>
 
         {allOptions.length === 0 ? (
-          <div className="text-center py-14 px-6 rounded-2xl bg-white shadow-sm border border-iceBlue">
-            <Building2 className="w-14 h-14 text-mistBlue mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-deepNavy mb-2">Nie masz jeszcze przypisanych stajni</h3>
-            <p className="text-sm text-steelBlue mb-6">Znajdź stajnię i wyślij prośbę o dołączenie.</p>
-            <button
-              onClick={() => router.push('/client/search')}
-              className="inline-flex items-center gap-2 rounded-xl bg-oceanBlue text-white px-5 py-3 text-sm font-medium hover:bg-marineBlue transition-colors"
-            >
-              <Search className="w-4 h-4" />
-              Przeglądaj stajnie
-            </button>
+          <div className="py-14 px-6 rounded-2xl bg-white shadow-sm border border-iceBlue">
+            {user?.role === 'STABLE_OWNER' ? (
+              showCreateForm ? (
+                <form onSubmit={handleCreateStable} className="max-w-md mx-auto text-left space-y-4">
+                  <h3 className="text-lg font-bold text-deepNavy text-center mb-2">Utwórz swoją stajnię</h3>
+                  {createError && (
+                    <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{createError}</p>
+                  )}
+                  {([
+                    { key: 'name', label: 'Nazwa stajni', type: 'text' },
+                    { key: 'address', label: 'Adres', type: 'text' },
+                    { key: 'city', label: 'Miasto', type: 'text' },
+                    { key: 'postalCode', label: 'Kod pocztowy', type: 'text' },
+                    { key: 'phone', label: 'Telefon', type: 'tel' },
+                    { key: 'email', label: 'E-mail stajni', type: 'email' },
+                  ] as const).map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-sm font-medium text-deepNavy mb-1">{field.label}</label>
+                      <input
+                        type={field.type}
+                        required
+                        value={stableForm[field.key]}
+                        onChange={(e) => setStableForm({ ...stableForm, [field.key]: e.target.value })}
+                        className="w-full rounded-xl border border-iceBlue px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-oceanBlue"
+                      />
+                    </div>
+                  ))}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateForm(false)}
+                      className="flex-1 rounded-xl border border-iceBlue px-5 py-3 text-sm font-medium text-steelBlue hover:bg-arcticBlue transition-colors"
+                    >
+                      Anuluj
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creating}
+                      className="flex-1 rounded-xl bg-oceanBlue text-white px-5 py-3 text-sm font-medium hover:bg-marineBlue transition-colors disabled:opacity-50"
+                    >
+                      {creating ? 'Tworzenie...' : 'Utwórz stajnię'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="text-center">
+                  <Building2 className="w-14 h-14 text-mistBlue mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-deepNavy mb-2">Nie masz jeszcze stajni</h3>
+                  <p className="text-sm text-steelBlue mb-6">Utwórz swoją stajnię, aby zarządzać nią w panelu.</p>
+                  <button
+                    onClick={() => setShowCreateForm(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-oceanBlue text-white px-5 py-3 text-sm font-medium hover:bg-marineBlue transition-colors"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    Utwórz stajnię
+                  </button>
+                </div>
+              )
+            ) : (
+              <div className="text-center">
+                <Building2 className="w-14 h-14 text-mistBlue mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-deepNavy mb-2">Nie masz jeszcze przypisanych stajni</h3>
+                <p className="text-sm text-steelBlue mb-6">Znajdź stajnię i wyślij prośbę o dołączenie.</p>
+                <button
+                  onClick={() => router.push('/client/search')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-oceanBlue text-white px-5 py-3 text-sm font-medium hover:bg-marineBlue transition-colors"
+                >
+                  <Search className="w-4 h-4" />
+                  Przeglądaj stajnie
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-3 pb-10">
@@ -213,6 +301,59 @@ export default function SelectStablePage() {
                 <ChevronRight className="w-5 h-5 text-mistBlue group-hover:text-oceanBlue transition-colors flex-shrink-0" />
               </button>
             ))}
+            {user?.role === 'STABLE_OWNER' && (
+              showCreateForm ? (
+                <form onSubmit={handleCreateStable} className="rounded-2xl bg-white border border-iceBlue shadow-sm p-5 space-y-4">
+                  <h3 className="text-lg font-bold text-deepNavy">Utwórz kolejną stajnię</h3>
+                  {createError && (
+                    <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{createError}</p>
+                  )}
+                  {([
+                    { key: 'name', label: 'Nazwa stajni', type: 'text' },
+                    { key: 'address', label: 'Adres', type: 'text' },
+                    { key: 'city', label: 'Miasto', type: 'text' },
+                    { key: 'postalCode', label: 'Kod pocztowy', type: 'text' },
+                    { key: 'phone', label: 'Telefon', type: 'tel' },
+                    { key: 'email', label: 'E-mail stajni', type: 'email' },
+                  ] as const).map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-sm font-medium text-deepNavy mb-1">{field.label}</label>
+                      <input
+                        type={field.type}
+                        required
+                        value={stableForm[field.key]}
+                        onChange={(e) => setStableForm({ ...stableForm, [field.key]: e.target.value })}
+                        className="w-full rounded-xl border border-iceBlue px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-oceanBlue"
+                      />
+                    </div>
+                  ))}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateForm(false)}
+                      className="flex-1 rounded-xl border border-iceBlue px-5 py-3 text-sm font-medium text-steelBlue hover:bg-arcticBlue transition-colors"
+                    >
+                      Anuluj
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creating}
+                      className="flex-1 rounded-xl bg-oceanBlue text-white px-5 py-3 text-sm font-medium hover:bg-marineBlue transition-colors disabled:opacity-50"
+                    >
+                      {creating ? 'Tworzenie...' : 'Utwórz stajnię'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="w-full rounded-2xl border-2 border-dashed border-mistBlue p-4 flex items-center justify-center gap-2 text-sm font-medium text-steelBlue hover:border-oceanBlue hover:text-oceanBlue transition-colors"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Utwórz kolejną stajnię
+                </button>
+              )
+            )}
           </div>
         )}
       </main>
