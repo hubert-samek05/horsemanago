@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
 import { Menu, Plus, Search, X, Edit2, Trash2, Maximize2, FileText, Shield, Stethoscope, Wrench } from 'lucide-react';
@@ -455,9 +456,13 @@ function HorsesContent() {
       <div className="lg:ml-72 min-h-screen pb-20 lg:pb-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-gradient-to-r from-deepNavy to-oceanBlue text-white p-4 flex items-center justify-between sticky top-0 z-30">
-          <div className="w-16 h-16 bg-white/10 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xs">HM</span>
-          </div>
+          <Image
+            src="/zdj/horsemanagologo3"
+            alt="HORSEmanago"
+            width={100}
+            height={100}
+            className="rounded-lg"
+          />
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
