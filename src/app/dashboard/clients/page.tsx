@@ -76,7 +76,22 @@ export default function ClientsPage() {
   const effectiveRole = activeRole || user?.role;
   const isStableOwner = effectiveRole === 'STABLE_OWNER' || effectiveRole === 'ADMIN';
   const isManager = effectiveRole === 'MANAGER';
-  const canAddClients = isStableOwner || isManager;
+  const [canManageClients, setCanManageClients] = useState(false);
+  const canAddClients = isStableOwner || isManager || canManageClients;
+
+  useEffect(() => {
+    if (isStableOwner || isManager || !activeStableId || !user?.id) return;
+    const loadPermissions = async () => {
+      try {
+        const { data } = await api.get(`/employees?stableId=${activeStableId}`);
+        const me = (data || []).find((e: any) => e.userId === user.id || e.user?.id === user.id);
+        setCanManageClients(me?.permissions?.manageClients === true);
+      } catch {
+        setCanManageClients(false);
+      }
+    };
+    loadPermissions();
+  }, [activeStableId, user?.id, isStableOwner, isManager]);
 
   useEffect(() => {
     if (!activeStableId) {
