@@ -105,10 +105,11 @@ export default function FarriersPage() {
     );
   }
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [farrierFormData, setFarrierFormData] = useState({
     name: '',

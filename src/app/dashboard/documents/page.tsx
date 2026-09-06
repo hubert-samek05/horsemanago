@@ -57,10 +57,11 @@ export default function DocumentsPage() {
     notes: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [clients, setClients] = useState<any[]>([]);

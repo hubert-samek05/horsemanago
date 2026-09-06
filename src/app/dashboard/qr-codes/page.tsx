@@ -63,10 +63,11 @@ export default function QRCodesPage() {
     password: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [qrCodes, setQRCodes] = useState<QRCode[]>([]);
   const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);

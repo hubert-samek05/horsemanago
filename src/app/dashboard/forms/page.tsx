@@ -79,10 +79,11 @@ export default function FormsPage() {
   const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
   const [selectedFormSubmissions, setSelectedFormSubmissions] = useState<FormSubmission[]>([]);
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [forms, setForms] = useState<FormTemplate[]>([]);
   const [camps, setCamps] = useState<any[]>([]);

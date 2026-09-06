@@ -765,10 +765,11 @@ export default function CalendarPage() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   if (loading) {
     return (

@@ -34,10 +34,11 @@ export default function OfflinePage() {
     storageLimit: 100,
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);

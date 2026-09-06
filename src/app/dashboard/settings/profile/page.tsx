@@ -58,8 +58,8 @@ export default function ProfileSettingsPage() {
   const [activeStableId, setActiveStableId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
+    if (!isAuthenticated()) {
+      router.replace('/login');
       return;
     }
 

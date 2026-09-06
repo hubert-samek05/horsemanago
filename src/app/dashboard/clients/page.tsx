@@ -36,10 +36,11 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const effectiveRole = activeRole || user?.role;
   const isStableOwner = effectiveRole === 'STABLE_OWNER' || effectiveRole === 'ADMIN';

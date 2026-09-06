@@ -109,10 +109,11 @@ export default function BoardingPage() {
     supplements: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [boxes, setBoxes] = useState<any[]>([]);
   const [horses, setHorses] = useState<any[]>([]);

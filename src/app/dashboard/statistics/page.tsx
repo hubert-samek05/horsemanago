@@ -34,10 +34,11 @@ export default function StatisticsPage() {
   const [activePassesCount, setActivePassesCount] = useState(0);
   const [activePassesRevenue, setActivePassesRevenue] = useState(0);
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     if (!activeStableId) {

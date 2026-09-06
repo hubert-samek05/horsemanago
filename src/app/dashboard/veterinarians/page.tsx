@@ -81,10 +81,11 @@ export default function VeterinariansPage() {
     notes: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [veterinarians, setVeterinarians] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);

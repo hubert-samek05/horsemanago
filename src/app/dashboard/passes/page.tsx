@@ -65,10 +65,11 @@ export default function PassesPage() {
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const passes = usePassStore((state) => state.passes);
   const setPasses = usePassStore((state) => state.setPasses);

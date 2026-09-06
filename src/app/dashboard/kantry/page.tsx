@@ -77,10 +77,11 @@ export default function KantryPage() {
     notes: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [kantry, setKantry] = useState<Kantra[]>([]);
   const [sessions, setSessions] = useState<KantraSession[]>([]);

@@ -1,7 +1,7 @@
 'use client';
 
 export const dynamic = 'force-static';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
@@ -67,10 +67,11 @@ export default function EmailSettingsPage() {
     alert('Ustawienia Email zapisane!');
   };
 
-  if (!isAuthenticated) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">

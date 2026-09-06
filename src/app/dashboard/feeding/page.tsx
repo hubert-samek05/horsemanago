@@ -78,10 +78,11 @@ export default function FeedingPage() {
     notes: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [feedingSchedules, setFeedingSchedules] = useState<any[]>([]);
   const [feedInventory, setFeedInventory] = useState<any[]>([]);

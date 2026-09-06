@@ -96,10 +96,11 @@ export default function ChecklistsPage() {
   const [reportEndDate, setReportEndDate] = useState<string>('');
   const [reportInstructor, setReportInstructor] = useState<string>('all');
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [checklists, setChecklists] = useState<Checklist[]>([]);
 

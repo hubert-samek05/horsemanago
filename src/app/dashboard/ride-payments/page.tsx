@@ -71,10 +71,11 @@ export default function RidePaymentsPage() {
     notes: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [payments, setPayments] = useState<RidePayment[]>([]);
 

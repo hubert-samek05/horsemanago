@@ -299,10 +299,11 @@ export default function SettingsPage() {
 
   const [editForm, setEditForm] = useState<StableProfile>({ ...stableProfile });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     if (!activeStableId) {

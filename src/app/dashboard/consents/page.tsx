@@ -60,10 +60,11 @@ export default function ConsentsPage() {
     required: false,
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [consents, setConsents] = useState<Consent[]>([]);
   const [clientConsents, setClientConsents] = useState<ClientConsent[]>([]);

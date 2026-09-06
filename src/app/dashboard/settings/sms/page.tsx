@@ -122,10 +122,11 @@ export default function SMSSettingsPage() {
     }
   };
 
-  if (!isAuthenticated) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">

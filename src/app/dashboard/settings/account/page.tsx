@@ -1,12 +1,12 @@
 'use client';
 
 export const dynamic = 'force-static';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MobileNav from '@/components/dashboard/MobileNav';
-import { Menu, User, ChevronLeft, Shield, Save, Bell } from 'lucide-react';
+import { Menu, User, ChevronLeft, Shield, Save, Bell, AlertTriangle, Trash2 } from 'lucide-react';
 
 interface AccountSettings {
   firstName: string;
@@ -32,8 +32,11 @@ interface AccountSettings {
 
 export default function AccountSettingsPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [accountSettings, setAccountSettings] = useState<AccountSettings>({
     firstName: user?.firstName || '',
@@ -62,10 +65,39 @@ export default function AccountSettingsPage() {
     alert('Ustawienia konta zapisane!');
   };
 
-  if (!isAuthenticated) {
-    router.push('/login');
-    return null;
-  }
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'USUNĄĆ') {
+      alert('Musisz wpisać "USUNĄĆ" aby potwierdzić usunięcie konta.');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const { api } = await import('@/lib/api');
+      await api.delete('/user/account/me');
+      
+      // Clear local storage and logout
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      logout();
+      
+      alert('Konto zostało usunięte.');
+      router.push('/login');
+    } catch (error) {
+      console.error('Delete account error:', error);
+      alert('Nie udało się usunąć konta. Spróbuj ponownie.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setDeleteConfirmation('');
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
@@ -219,8 +251,99 @@ export default function AccountSettingsPage() {
             <Save className="w-5 h-5" />
             Zapisz ustawienia konta
           </button>
+
+          {/* Account Deletion Section */}
+          <div className="bg-white rounded-2xl shadow-lg border border-red-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="font-serif text-xl font-bold text-red-600">Usuń konto</h2>
+                <p className="text-sm text-gray-600">Trwałe usunięcie konta i wszystkich danych</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+              <p className="text-sm text-red-800">
+                <strong>Uwaga:</strong> Ta operacja jest nieodwracalna. Usunięcie konta spowoduje:
+              </p>
+              <ul className="text-sm text-red-700 mt-2 space-y-1 list-disc list-inside">
+                <li>Trwałe usunięcie wszystkich danych osobowych</li>
+                <li>Usunięcie wszystkich rezerwacji i subskrypcji</li>
+                <li>Utratę dostępu do wszystkich stajni i treningów</li>
+                <li>Usunięcie historii płatności</li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="w-full px-6 py-3 rounded-xl bg-red-600 text-white font-medium shadow-lg hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-5 h-5" />
+              Usuń konto
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="font-serif text-xl font-bold text-red-600">Potwierdź usunięcie</h2>
+                  <p className="text-sm text-gray-600">Ta operacja jest nieodwracalna</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-700 mb-4">
+                Aby potwierdzić usunięcie konta, wpisz <strong>USUNĄĆ</strong> w polu poniżej:
+              </p>
+
+              <input
+                type="text"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="USUNĄĆ"
+                className="w-full px-4 py-3 rounded-xl border border-red-300 focus:outline-none focus:border-red-500 text-deepNavy text-sm mb-4"
+              />
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmation('');
+                  }}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+                >
+                  Anuluj
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting || deleteConfirmation !== 'USUNĄĆ'}
+                  className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    'Usuwanie...'
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Usuń konto
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MobileNav user={user} />
     </div>

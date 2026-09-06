@@ -80,10 +80,11 @@ export default function HealthPage() {
     notes: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [healthRecords, setHealthRecords] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);

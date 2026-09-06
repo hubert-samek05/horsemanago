@@ -159,10 +159,11 @@ export default function CampsPage() {
   const [newRequirement, setNewRequirement] = useState('');
   const [newInclude, setNewInclude] = useState('');
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [camps, setCamps] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);

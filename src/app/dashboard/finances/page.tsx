@@ -96,10 +96,11 @@ export default function FinancesPage() {
 
   const [newItem, setNewItem] = useState({ description: '', quantity: 1, unitPrice: 0 });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [financialSummary, setFinancialSummary] = useState<any>(null);

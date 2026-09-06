@@ -131,10 +131,11 @@ export default function CompetitionsPage() {
     contactPhone: '',
   });
 
-  if (!isAuthenticated()) {
-    router.push('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
 
   const [competitions, setCompetitions] = useState<Competition[]>([]);
 
