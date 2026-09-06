@@ -50,6 +50,8 @@ export default function RidePaymentsPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [horses, setHorses] = useState<any[]>([]);
   const [instructors, setInstructors] = useState<any[]>([]);
+  const passes = usePassStore((state) => state.passes);
+  const setPasses = usePassStore((state) => state.setPasses);
   const [formData, setFormData] = useState({
     rideId: '',
     clientName: '',
@@ -120,9 +122,6 @@ export default function RidePaymentsPage() {
       </div>
     );
   }
-
-  const passes = usePassStore((state) => state.passes);
-  const setPasses = usePassStore((state) => state.setPasses);
 
   const paymentMethods = [
     { value: 'cash', label: 'Gotówka' },
