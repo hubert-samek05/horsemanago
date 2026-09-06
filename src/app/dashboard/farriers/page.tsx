@@ -410,6 +410,17 @@ export default function FarriersPage() {
     setShowAddAppointmentModal(true);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
+        <div className="lg:ml-72 min-h-screen flex items-center justify-center">
+          <p className="text-marineBlue">Ładowanie kowali...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-arcticBlue via-white to-iceBlue">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} user={user} />
