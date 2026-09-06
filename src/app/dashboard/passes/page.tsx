@@ -64,6 +64,7 @@ export default function PassesPage() {
   });
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
+  const [passTypes, setPassTypes] = useState<PassTypeConfig[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -112,8 +113,6 @@ export default function PassesPage() {
       </div>
     );
   }
-
-  const [passTypes, setPassTypes] = useState<PassTypeConfig[]>([]);
 
   const paymentMethods = [
     { value: 'cash', label: 'Gotówka' },
