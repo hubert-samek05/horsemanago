@@ -460,7 +460,10 @@ export default function EmployeesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('handleSubmit - activeStableId:', activeStableId);
+    if (!activeStableId) {
+      alert('Nie wybrano stajni. Odśwież stronę lub wybierz stajnię ponownie.');
+      return;
+    }
     const role = roles.find(r => r.id === formData.role);
     const employeeData = {
       ...formData,

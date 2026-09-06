@@ -4,16 +4,21 @@ import { useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import api from '@/lib/api';
 
-let resolveAttempted = false;
+// Tracks which user id the stable resolution was already attempted for.
+// Resetting per-user (instead of a global once-flag) ensures that after
+// logout -> login the active stable is resolved again, and that a failed
+// attempt can be retried on the next mount.
+let resolveAttemptedFor: string | null = null;
 
 function StableResolver() {
   const { isAuthenticated, hasHydrated, user, activeStableId, activeRole, setActiveStable } = useAuthStore();
 
   useEffect(() => {
     if (typeof window === 'undefined' || !hasHydrated || !isAuthenticated()) return;
-    if (resolveAttempted) return;
+    const currentUserId = user?.id ?? null;
+    if (resolveAttemptedFor === currentUserId) return;
 
-    resolveAttempted = true;
+    resolveAttemptedFor = currentUserId;
 
     const params = new URLSearchParams(window.location.search);
     const stableIdFromUrl = params.get('stableId');
@@ -64,6 +69,8 @@ function StableResolver() {
         }
       } catch (error) {
         console.error('Resolve stable error:', error);
+        // Allow retry on next mount if resolution failed
+        resolveAttemptedFor = null;
       }
     };
     resolveStable();
